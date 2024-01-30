@@ -19,7 +19,7 @@ Public API
 ----------
 
 .. autoclass:: modin.core.execution.ray.implementations.pandas_on_ray.partitioning.PandasOnRayDataframePartition
-  :members:
+  :members:lazy
 
 .. _asynchronously: https://en.wikipedia.org/wiki/Asynchrony_(computer_programming)
 .. _lazily: https://en.wikipedia.org/wiki/Lazy_evaluation

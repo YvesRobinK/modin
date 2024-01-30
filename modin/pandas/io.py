@@ -218,6 +218,8 @@ def read_csv(
     storage_options: StorageOptions = None,
     dtype_backend: Union[DtypeBackend, NoDefault] = no_default,
 ) -> "DataFrame" | TextFileReader:
+
+    print("I was here _____________________________________")
     # ISSUE #2408: parse parameter shared with pandas read_csv and read_table and update with provided args
     _pd_read_csv_signature = {
         val.name for val in inspect.signature(pandas.read_csv).parameters.values()
