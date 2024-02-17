@@ -1,0 +1,11 @@
+modin~=0+untagged.2733.gd4b01c2.dirty
+numpy~=1.26.3
+pandas~=2.1.4
+fsspec~=2023.12.2
+packaging~=23.2
+psutil~=5.9.7
+snowflake~=0.5.1
+pyarrow~=15.0.0
+requests~=2.31.0
+pytz~=2023.3.post1
+setuptools~=69.0.3

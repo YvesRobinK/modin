@@ -83,6 +83,9 @@ class BaseIO:
         """
         return cls.query_compiler_cls.from_pandas(df, cls.frame_cls)
 
+    def from_snowflake(cls, tablename: str):
+        from modin.experimental.core.execution.snowflake.io import SnowflakeIO
+        return SnowflakeIO.from_sf_table(tablename)
     @classmethod
     def from_arrow(cls, at):
         """
@@ -135,6 +138,7 @@ class BaseIO:
         summary="Read a comma-separated values (CSV) file into query compiler",
         returns=_doc_returns_qc_or_parser,
     )
+
     def read_csv(
         cls,
         filepath_or_buffer,

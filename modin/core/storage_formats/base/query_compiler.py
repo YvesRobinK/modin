@@ -1922,6 +1922,7 @@ class BaseQueryCompiler(ClassLogger, abc.ABC):
         pandas.Series
             Series with dtypes of each column.
         """
+
         return self.to_pandas().dtypes
 
     # END Abstract map partitions across select indices
@@ -4544,6 +4545,7 @@ class BaseQueryCompiler(ClassLogger, abc.ABC):
         -------
         set
         """
+        print("We are here")
         return set(self.dtypes.values)
 
     # DateTime methods

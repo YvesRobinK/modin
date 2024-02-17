@@ -174,12 +174,11 @@ class Engine(EnvironmentVariable, type=str):
     """Distribution engine to run queries by."""
 
     varname = "MODIN_ENGINE"
-    choices = ("Ray", "Dask", "Python", "Native", "Unidist")
+    choices = ("Ray", "Dask", "Python", "Native", "Unidist", "Snowflake")
 
     NOINIT_ENGINES = {
         "Python",
     }  # engines that don't require initialization, useful for unit tests
-
     has_custom_engine = False
 
     @classmethod
@@ -266,7 +265,7 @@ class StorageFormat(EnvironmentVariable, type=str):
 
     varname = "MODIN_STORAGE_FORMAT"
     default = "Pandas"
-    choices = ("Pandas", "Hdk", "Pyarrow", "Cudf")
+    choices = ("Pandas", "Hdk", "Pyarrow", "Cudf", "Snowflake")
 
 
 class IsExperimental(EnvironmentVariable, type=bool):
@@ -576,6 +575,17 @@ class PersistentPickle(EnvironmentVariable, type=bool):
     # but serialization/deserialization could take more time.
     default = False
 
+class SnowFlakeConnectionParameters(EnvironmentVariable, type=dict):
+    """
+    Stores connection Parameters for the Snowflake connection.
+    """
+    varname = "SNOWFLAKE_CON_DICT"
+
+class SnowFlakeDatabaseName(EnvironmentVariable, type=str):
+    """
+    Stores connection Parameters for the Snowflake connection.
+    """
+    varname = "SNOWFLAKE_DB_NAME"
 
 class HdkLaunchParameters(EnvironmentVariable, type=dict):
     """

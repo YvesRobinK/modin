@@ -77,6 +77,8 @@ from modin.utils import (
     expanduser_path_arg,
 )
 
+from modin.core.storage_formats.snowflake.query_compiler import SnowflakeQueryCompiler
+
 # below logic is to handle circular imports without errors
 if TYPE_CHECKING:
     from .dataframe import DataFrame
@@ -218,8 +220,8 @@ def read_csv(
     storage_options: StorageOptions = None,
     dtype_backend: Union[DtypeBackend, NoDefault] = no_default,
 ) -> "DataFrame" | TextFileReader:
+    print("We are executing here <<<<<<<<<<<<<<<<<<1<<<<<<<<<<<<<<<<<<<")
 
-    print("I was here _____________________________________")
     # ISSUE #2408: parse parameter shared with pandas read_csv and read_table and update with provided args
     _pd_read_csv_signature = {
         val.name for val in inspect.signature(pandas.read_csv).parameters.values()
@@ -395,6 +397,13 @@ def read_gbq(
     return ModinObjects.DataFrame(query_compiler=FactoryDispatcher.read_gbq(**kwargs))
 
 
+def from_sf_table(
+        tablename: str
+) -> DataFrame:
+    print("Correct flow <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+    from modin.experimental.core.execution.snowflake.io import SnowflakeIO
+    return ModinObjects.DataFrame(query_compiler=SnowflakeIO.from_sf_table(SnowflakeIO,tablename))
+
 @_inherit_docstrings(pandas.read_html, apilink="pandas.read_html")
 @expanduser_path_arg("io")
 @enable_logging
@@ -448,6 +457,7 @@ def read_clipboard(
     return ModinObjects.DataFrame(
         query_compiler=FactoryDispatcher.read_clipboard(**kwargs)
     )
+
 
 
 @_inherit_docstrings(pandas.read_excel, apilink="pandas.read_excel")

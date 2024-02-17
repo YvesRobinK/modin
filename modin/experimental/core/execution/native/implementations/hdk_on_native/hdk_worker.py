@@ -112,6 +112,8 @@ class HdkWorker(BaseDbWorker):  # noqa: PR01
             ra = hdk._calcite.process(query, db_name="hdk", legacy_syntax=True)
         else:
             ra = query
+
+        """Insert Calcite Rebuilder here and see what happens"""
         ra_executor = RelAlgExecutor(hdk._executor, hdk._schema_mgr, hdk._data_mgr, ra)
         table = ra_executor.execute(device_type=cls._preferred_device, **exec_args)
         return HdkTable(table)

@@ -36,6 +36,7 @@ from modin.core.storage_formats.pandas.query_compiler import PandasQueryCompiler
 from modin.error_message import ErrorMessage
 from modin.utils import MODIN_UNNAMED_SERIES_LABEL, _inherit_docstrings
 
+from snowflake.snowpark.table import Table
 
 def is_inoperable(value):
     """
@@ -90,12 +91,16 @@ def build_method_wrapper(name, method):
         # to fallback to pandas on 'NotImplementedError' then the call of this
         # private method is caused by some public QC method, so we catch
         # the exception here and do fallback properly
+        print("Wrapppppping #################################################33")
         default_method = getattr(super(type(self), self), name, None)
-        if is_inoperable([self, args, kwargs]):
-            if default_method is None:
-                raise NotImplementedError("Frame contains data of unsupported types.")
-            return default_method(*args, **kwargs)
+        if not(isinstance(self._modin_frame._partitions, Table)):
+            if is_inoperable([self, args, kwargs]):
+                if default_method is None:
+                    raise NotImplementedError("Frame contains data of unsupported types.")
+                print("Wrapping 2 #########################################")
+                return default_method(*args, **kwargs)
         try:
+            print("Wrapping 3 #########################################")
             return method(self, *args, **kwargs)
         # Defaulting to pandas if `NotImplementedError` was arisen
         except NotImplementedError as err:
@@ -379,6 +384,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         drop=False,
         series_groupby=False,
     ):
+
         # TODO: handle `drop` args
         if callable(agg_func):
             raise NotImplementedError(
@@ -468,7 +474,13 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         kwargs.pop("skipna", None)
         kwargs.pop("numeric_only", None)
 
+        print("FRame type:>>>>>>>>>>>>>>>>>>>>>>>>> ", str(type(self._modin_frame)))
         new_frame = self._modin_frame.agg(agg)
+        print("new_Frame type:>>>>>>>>>>>>>>>>>>>>>>>>> ", str(type(new_frame)))
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(new_frame, SnowflakeDataframe):
+            return self.__constructor__(new_frame, shape_hint="row")
+
         new_frame = new_frame._set_index(
             pandas.Index.__new__(
                 pandas.Index, data=[MODIN_UNNAMED_SERIES_LABEL], dtype="O"
@@ -508,6 +520,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         -------
         pandas.Index
         """
+        print("_unsupported_data: ", str(self._modin_frame._has_unsupported_data))
         if self._modin_frame._has_unsupported_data:
             return default_axis_getter(1)(self)
         return self._modin_frame.columns
@@ -848,6 +861,10 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
 
     def columnarize(self):
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            return self
+
         if self._shape_hint == "column":
             assert len(self.columns) == 1, "wrong shape hint"
             return self
@@ -908,6 +925,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
     @property
     def dtypes(self):
+        print("we are here 2")
+        print("ModinFrame", str(type(self._modin_frame)))
         return self._modin_frame.dtypes
 
 

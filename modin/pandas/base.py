@@ -2096,6 +2096,7 @@ class BasePandasDataset(ClassLogger):
                 self is DataFrame and level is not specified.
             `DataFrame` - self is DataFrame and level is specified.
         """
+
         axis = self._get_axis_number(axis) if axis is not None else None
         validate_bool_kwarg(skipna, "skipna", none_allowed=False)
         if op_name == "median":

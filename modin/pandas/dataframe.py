@@ -2882,6 +2882,7 @@ class DataFrame(BasePandasDataset):
         )
 
     def _validate_dtypes(self, numeric_only=False):
+
         """
         Check that all the dtypes are the same.
 
@@ -2896,6 +2897,9 @@ class DataFrame(BasePandasDataset):
         # integer keys will always be treated as labels (consistent with DataFrame behavior).
         # To access a value by position, use `ser.iloc[pos]`
         dtypes = self._query_compiler.get_dtypes_set()
+        print("Dtypes set: ", str(dtypes))
+        for item in dtypes:
+            print("type: ", str(type(item)))
         dtype = next(iter(dtypes))
         for t in dtypes:
             if numeric_only and not is_numeric_dtype(t):

@@ -244,14 +244,27 @@ class HdkOnNativeDataframePartitionManager(PandasDataframePartitionManager):
         """
         worker = DbWorker()
 
+        file2 = open("basic_plan.txt", "a")
+        file2.write(str(plan))
+        file2.close()
+
         # First step is to make sure all partitions are in HDK.
         frames = plan.collect_frames()
+
         for frame in frames:
             cls.import_table(frame, worker)
 
         builder = CalciteBuilder()
         calcite_plan = builder.build(plan)
         calcite_json = CalciteSerializer().serialize(calcite_plan)
+
+        # Opening and Closing a file "MyFile.txt"
+        # for object name file1.
+        file1 = open("calcite_plan.txt", "w")
+        file1.write(calcite_json)
+        file1.close()
+
+
         if DoUseCalcite.get():
             exec_calcite = True
             calcite_json = "execute calcite " + calcite_json

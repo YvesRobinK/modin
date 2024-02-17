@@ -217,11 +217,13 @@ from .io import (
     read_table,
     read_xml,
     to_pickle,
+    from_sf_table, #import snowflake specific io function
 )
 from .plotting import Plotting as plotting
 from .series import Series
 
 __all__ = [  # noqa: F405
+    "from_sf_table",  #add snowflake specific io function
     "DataFrame",
     "Series",
     "read_csv",

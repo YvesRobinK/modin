@@ -318,6 +318,7 @@ class PandasQueryCompiler(BaseQueryCompiler):
 
     @property
     def dtypes(self):
+
         return self._modin_frame.dtypes
 
     def get_dtypes_set(self):
