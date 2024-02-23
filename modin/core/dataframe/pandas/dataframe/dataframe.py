@@ -99,6 +99,7 @@ class PandasDataframe(ClassLogger):
         """
         Create a new instance of this object.
 
+
         Returns
         -------
         PandasDataframe

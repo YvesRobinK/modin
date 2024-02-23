@@ -91,16 +91,16 @@ def build_method_wrapper(name, method):
         # to fallback to pandas on 'NotImplementedError' then the call of this
         # private method is caused by some public QC method, so we catch
         # the exception here and do fallback properly
-        print("Wrapppppping #################################################33")
+
         default_method = getattr(super(type(self), self), name, None)
         if not(isinstance(self._modin_frame._partitions, Table)):
             if is_inoperable([self, args, kwargs]):
                 if default_method is None:
                     raise NotImplementedError("Frame contains data of unsupported types.")
-                print("Wrapping 2 #########################################")
+
                 return default_method(*args, **kwargs)
         try:
-            print("Wrapping 3 #########################################")
+
             return method(self, *args, **kwargs)
         # Defaulting to pandas if `NotImplementedError` was arisen
         except NotImplementedError as err:
@@ -312,6 +312,27 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             )
         )
 
+    def get_positions_from_labels(self, row_loc, col_loc):
+        pass
+
+    def getitem_row_array(self, key):
+        return self
+
+    def take_2d_labels(
+            self,
+            index,
+            columns,
+    ):
+        print("Index+++++++++++++++++", str(index))
+        print("Index type+++++++++++++++++", str(type(index._query_compiler._modin_frame._partitions)))
+        print("Columns+++++++++++++++++", str(columns))
+        return self.__constructor__(
+            self._modin_frame.take_2d_labels_or_positional(
+                row_positions=index
+            )
+        )
+
+
     def groupby_size(
         self,
         by,
@@ -520,7 +541,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         -------
         pandas.Index
         """
-        print("_unsupported_data: ", str(self._modin_frame._has_unsupported_data))
+
         if self._modin_frame._has_unsupported_data:
             return default_axis_getter(1)(self)
         return self._modin_frame.columns

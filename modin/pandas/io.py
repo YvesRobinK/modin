@@ -400,7 +400,6 @@ def read_gbq(
 def from_sf_table(
         tablename: str
 ) -> DataFrame:
-    print("Correct flow <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
     from modin.experimental.core.execution.snowflake.io import SnowflakeIO
     return ModinObjects.DataFrame(query_compiler=SnowflakeIO.from_sf_table(SnowflakeIO,tablename))
 

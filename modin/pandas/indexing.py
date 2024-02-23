@@ -636,6 +636,7 @@ class _LocIndexer(_LocationIndexerBase):
         --------
         pandas.DataFrame.loc
         """
+
         if self.df.empty:
             return self.df._default_to_pandas(lambda df: df.loc[key])
         if isinstance(key, tuple):
@@ -718,7 +719,10 @@ class _LocIndexer(_LocationIndexerBase):
 
         col_loc_as_list = [col_loc] if col_scalar else col_loc
         row_loc_as_list = [row_loc] if row_scalar else row_loc
-        # Pandas drops the levels that are in the `loc`, so we have to as well.
+        # Pandas drops the levels that are in the `loc`, so we have to as well
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(result._query_compiler._modin_frame, SnowflakeDataframe):
+            return result
         if (
             isinstance(result, (Series, DataFrame))
             and result._query_compiler.has_multiindex()
@@ -735,6 +739,7 @@ class _LocIndexer(_LocationIndexerBase):
                 result.index = result.index.droplevel(list(range(len(col_loc_as_list))))
             elif not isinstance(row_loc_as_list, slice) and all(
                 not isinstance(row_loc_as_list[i], slice)
+
                 and row_loc_as_list[i] in result.index.levels[i]
                 for i in range(len(row_loc_as_list))
             ):

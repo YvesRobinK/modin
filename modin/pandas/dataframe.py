@@ -3103,10 +3103,21 @@ class DataFrame(BasePandasDataset):
         Series or DataFrame
             Retrieved data.
         """
+
+        """
+        from . import DataFrame
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            new_frame = self._query_compiler._modin_frame.filter(key)
+            return DataFrame(query_compiler=type(self._query_compiler)(new_frame, shape_hint=None))
+        """
+
+
         key = apply_if_callable(key, self)
         # Shortcut if key is an actual column
         is_mi_columns = self._query_compiler.has_multiindex(axis=1)
         try:
+            print("Columns:  ",str(self.columns))
             if key in self.columns and not is_mi_columns:
                 return self._getitem_column(key)
         except (KeyError, ValueError, TypeError):

@@ -64,6 +64,7 @@ from modin.logging import ClassLogger, disable_logging
 from modin.pandas.utils import is_scalar
 from modin.utils import _inherit_docstrings, expanduser_path_arg, try_cast_to_pandas
 
+
 from .utils import _doc_binary_op, is_full_grab_slice
 
 # Similar to pandas, sentinel value to use as kwarg in place of None when None has
@@ -3805,6 +3806,8 @@ class BasePandasDataset(ClassLogger):
         BasePandasDataset
             Located dataset.
         """
+
+
         if not self._query_compiler.lazy_execution and len(self) == 0:
             return self._default_to_pandas("__getitem__", key)
         # see if we can slice the rows
