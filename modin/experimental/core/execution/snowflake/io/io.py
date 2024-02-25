@@ -39,6 +39,5 @@ class SnowflakeIO():
         self.make_connection(self)
 
         snowflake_table = self.session.table(tablename)
-        snowflake_frame = SnowflakeDataframe(snowflake_table)
-
+        snowflake_frame = SnowflakeDataframe(sf_table=snowflake_table, sf_base=snowflake_table)
         return self.query_compiler_cls(snowflake_frame, shape_hint=None)

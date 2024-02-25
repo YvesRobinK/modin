@@ -469,6 +469,7 @@ class BasePandasDataset(ClassLogger):
         ]
         if op in exclude_list:
             kwargs.pop("axis")
+
         new_query_compiler = getattr(self._query_compiler, op)(other, **kwargs)
         return self._create_or_update_from_compiler(new_query_compiler)
 

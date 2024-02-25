@@ -13,8 +13,8 @@ from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 
 
 from snowflake.snowpark import table
-from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType
-
+from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
+from snowflake.snowpark.functions import col
 
 from pandas import Series
 
@@ -29,6 +29,8 @@ def _map_to_dtypes(
         return numpy.dtype('O')
     elif isinstance(sf_type, DecimalType):
         return numpy.dtype('float64')
+    elif isinstance(sf_type, DataType):
+        return numpy.dtype('float64')
 
 
 NON_NUMERIC_DTYPES = [numpy.dtype('O')]
@@ -42,24 +44,25 @@ class SnowflakeDataframe():
     def __init__(
             self,
             sf_table: table = None,
+            sf_base: table = None,
             op: DFAlgNode = None
     ):
         self._partitions: table = sf_table
-        print("Type of _partitions: ", str(type(sf_table)))
         self._op = op
-
+        self._base_partition = sf_base
+        print("Base Type: ", str(type(self._base_partition)), "   columns")
         self._shape_hint = "row"
         self.columns = sf_table.columns
 
         self._sf_types = []
-        self.schema =sf_table.schema
+        self.schema = sf_table.schema
         for col in self.schema:
             self._sf_types.append(col.datatype)
-        print("Sf_types: ", str(self._sf_types))
+
         dtypes = [_map_to_dtypes(x) for x in self._sf_types]
 
         self.dtypes = Series([x for x in dtypes if x not in NON_NUMERIC_DTYPES ])
-        print("Series dtype: ", str(dtypes))
+
         self.index = self.columns
 
     """
@@ -101,10 +104,7 @@ class SnowflakeDataframe():
             self,
             agg: str
     ):
-        if agg == "mean":
-            print('reached mean')
 
-        agg_dict = {}
         schema = self._partitions.schema
         command_dict = {}
         for col in schema:
@@ -113,7 +113,8 @@ class SnowflakeDataframe():
         new_partitions = self._partitions.agg(command_dict)
 
         return SnowflakeDataframe(
-            sf_table=new_partitions
+            sf_table=new_partitions,
+            sf_base=self._base_partition
         )
         """
         return self.__constructor__(
@@ -155,19 +156,20 @@ class SnowflakeDataframe():
             col_labels: Optional[List[Hashable]] = None,
             col_positions: Optional[List[int]] = None
     ):
-        print("col_labels:   ", str(col_labels))
-        print("row_positions:   ", str(row_positions))
+
         if not (col_labels is None):
-            return SnowflakeDataframe(sf_table=self._partitions.select(col_labels))
+            return SnowflakeDataframe(sf_table=self._partitions.select(col_labels), sf_base=self._partitions)
 
         if not (row_positions is None):
             #self._partitions.with_columne_renamed(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20"), "index")
-            print("We going here")
-            print("Row_position DF :", str(row_positions._query_compiler._modin_frame._partitions.columns[0]))
             #return SnowflakeDataframe(sf_table=self._partitions.select(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20")))
-            res = eval('self._partitions.filter("P_SIZE < 20")')
+            print("take 2d positional ", str(type(row_positions)))
+            col_name = row_positions._query_compiler._modin_frame.columns[0]
+            com_string = 'self._partitions.filter(' + col_name + ')'
+            res = eval(str(com_string))
+
             #return SnowflakeDataframe(sf_table=self._partitions.filter(str(row_positions._query_compiler._modin_frame._partitions.columns[0])))
-            return SnowflakeDataframe(sf_table=res)
+            return SnowflakeDataframe(sf_table=res,sf_base=self._partitions)
         return self
 
 
@@ -177,19 +179,10 @@ class SnowflakeDataframe():
         from modin.pandas.dataframe import DataFrame
         return modin.pandas.io.from_pandas(self._partitions.to_pandas())
 
-    def filter(
-            self,
-            key
-    ):
-        print("This is the key: ", str(key), " This is the type:", str(type(key)))
-        self._partitions.filter(key)
-
-
     def copy(
             self
     ):
-
-        return SnowflakeDataframe(sf_table= self._partitions)
+        return SnowflakeDataframe(sf_table=self._partitions, sf_base=self._base_partition)
 
 
     def bin_op(
@@ -201,11 +194,31 @@ class SnowflakeDataframe():
         print("op_name: ", str(op_name))
         print("Columns:", str(self.columns))
         if op_name == "lt":
-            expression = self._expr_build(self.columns, "lt", other)
+            print("We do this here")
+            #expression = self._expr_build(self.columns, "lt", other)
+            print("Columns:  ", str(self.columns[0]))
+            column_name = self.columns[0]
+            expr_string = 'self._partitions.select_expr("' + column_name + ' < ' + str(other) + '")'
             expression = 'self._partitions.select_expr("P_SIZE < 20")'
-            print("Expression:  " , str(expression))
-            new_table = eval(str(expression))
-            return SnowflakeDataframe(sf_table=new_table)
+            print("Expr string: ", str(expr_string))
+            new_table = eval(str(expr_string))
+            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
+
+        if op_name == "gt":
+            column_name = self.columns[0]
+            expr_string = 'self._partitions.select_expr("' + column_name + ' > ' + str(other) + '")'
+            new_table = eval(str(expr_string))
+            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
+
+
+        if op_name == "mul":
+            col_name_self = self.columns[0]
+            col_name_other = other.columns[0]
+            command_string = col_name_self + " * " + col_name_other
+            print("Command string: ", str(command_string))
+            print("self._partitions_columns: ", str(self._partitions.columns))
+            temp_frame = self._base_partition.select(col(col_name_self) * col(col_name_other))
+            return SnowflakeDataframe(sf_table=temp_frame, sf_base=self._base_partition)
         return None
 
     def has_multiindex(
@@ -225,3 +238,25 @@ class SnowflakeDataframe():
                 res.append("'" + item + " < " + str(other) + "'")
             return res
         return None
+
+    def _set_columns(
+            self,
+            new_columns
+    ):
+        rename_dict = {}
+        for index in range(len(self.columns)):
+            rename_dict[self.columns[index]] = new_columns[index]
+        self._partitions.rename(rename_dict)
+        return self
+
+    def join(
+            self,
+            other,
+            on
+    ):
+
+        left_key = "self._partitions." + on.split(' ')[0]
+        right_key =  "other._modin_frame._partitions." + on.split(' ')[len(on.split(' '))-1]
+        eval_str = 'self._partitions.join(other._modin_frame._partitions, '+ left_key + ' == ' + right_key +")"
+        joined_frame = eval(eval_str)
+        return SnowflakeDataframe(sf_table=joined_frame, sf_base=joined_frame)

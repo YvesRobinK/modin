@@ -25,6 +25,7 @@ from pandas._libs.lib import no_default
 from pandas.core.common import is_bool_indexer
 from pandas.core.dtypes.common import is_bool_dtype, is_integer_dtype, is_list_like
 
+from modin.core.execution.snowflake.dataframe import SnowflakeDataframe
 from modin.core.storage_formats.base.query_compiler import BaseQueryCompiler
 from modin.core.storage_formats.base.query_compiler import (
     _get_axis as default_axis_getter,
@@ -93,7 +94,7 @@ def build_method_wrapper(name, method):
         # the exception here and do fallback properly
 
         default_method = getattr(super(type(self), self), name, None)
-        if not(isinstance(self._modin_frame._partitions, Table)):
+        if not (isinstance(self._modin_frame._partitions, Table)):
             if is_inoperable([self, args, kwargs]):
                 if default_method is None:
                     raise NotImplementedError("Frame contains data of unsupported types.")
@@ -721,6 +722,21 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             self._modin_frame.dt_extract("doy"), self._shape_hint
         )
 
+    def join(self,
+             other: BaseQueryCompiler = None,
+             on: str = None,
+             how: str = None,
+             lsuffix: dict = None,
+             rsuffix: dict = None,
+             sort: bool = False,
+             validate: bool = False
+    ):
+        print("Self type; ", str(type(self._modin_frame)))
+        print("Other type; ", str(type(other._modin_frame)))
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            print("We heeeeeerrrreeeee")
+        return self.__constructor__(self._modin_frame.join(other, on))
+
     def _bin_op(self, other, op_name, **kwargs):
         """
         Perform a binary operation on a frame.
@@ -750,7 +766,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             other = other._modin_frame
         else:
             shape_hint = self._shape_hint
-
         new_modin_frame = self._modin_frame.bin_op(other, op_name, **kwargs)
         return self.__constructor__(new_modin_frame, shape_hint)
 
