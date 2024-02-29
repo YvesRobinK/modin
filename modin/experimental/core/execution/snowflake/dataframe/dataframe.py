@@ -50,7 +50,6 @@ class SnowflakeDataframe():
         self._partitions: table = sf_table
         self._op = op
         self._base_partition = sf_base
-        print("Base Type: ", str(type(self._base_partition)), "   columns")
         self._shape_hint = "row"
         self.columns = sf_table.columns
 
@@ -163,11 +162,11 @@ class SnowflakeDataframe():
         if not (row_positions is None):
             #self._partitions.with_columne_renamed(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20"), "index")
             #return SnowflakeDataframe(sf_table=self._partitions.select(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20")))
-            print("take 2d positional ", str(type(row_positions)))
+            print("Schema 2: ", str(self._partitions.columns))
             col_name = row_positions._query_compiler._modin_frame.columns[0]
             com_string = 'self._partitions.filter(' + col_name + ')'
             res = eval(str(com_string))
-
+            print("Schema 3: ", str(res.columns))
             #return SnowflakeDataframe(sf_table=self._partitions.filter(str(row_positions._query_compiler._modin_frame._partitions.columns[0])))
             return SnowflakeDataframe(sf_table=res,sf_base=self._partitions)
         return self
@@ -191,16 +190,19 @@ class SnowflakeDataframe():
             op_name,
             **kwargs
     ):
-        print("op_name: ", str(op_name))
-        print("Columns:", str(self.columns))
+        print("OPNAME:  ", str(op_name))
+        if op_name == "eq":
+            column_name = self.columns[0]
+            expr_string = 'self._partitions.select_expr("' + column_name + ' == ' + str(other) + '")'
+            print("EVALSTRING: ", str(expr_string))
+            new_table = eval(str(expr_string))
+            new_table = self._partitions.select(col(column_name) == str(other))
+            print("Schema: " ,str(new_table.schema))
+            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
+
         if op_name == "lt":
-            print("We do this here")
-            #expression = self._expr_build(self.columns, "lt", other)
-            print("Columns:  ", str(self.columns[0]))
             column_name = self.columns[0]
             expr_string = 'self._partitions.select_expr("' + column_name + ' < ' + str(other) + '")'
-            expression = 'self._partitions.select_expr("P_SIZE < 20")'
-            print("Expr string: ", str(expr_string))
             new_table = eval(str(expr_string))
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
 
@@ -210,13 +212,11 @@ class SnowflakeDataframe():
             new_table = eval(str(expr_string))
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
 
-
         if op_name == "mul":
+
             col_name_self = self.columns[0]
             col_name_other = other.columns[0]
             command_string = col_name_self + " * " + col_name_other
-            print("Command string: ", str(command_string))
-            print("self._partitions_columns: ", str(self._partitions.columns))
             temp_frame = self._base_partition.select(col(col_name_self) * col(col_name_other))
             return SnowflakeDataframe(sf_table=temp_frame, sf_base=self._base_partition)
         return None
@@ -254,9 +254,49 @@ class SnowflakeDataframe():
             other,
             on
     ):
-
         left_key = "self._partitions." + on.split(' ')[0]
-        right_key =  "other._modin_frame._partitions." + on.split(' ')[len(on.split(' '))-1]
-        eval_str = 'self._partitions.join(other._modin_frame._partitions, '+ left_key + ' == ' + right_key +")"
+        right_key = "other._modin_frame._partitions." + on.split(' ')[len(on.split(' '))-1]
+        eval_str = 'self._partitions.join(other._modin_frame._partitions, ' + left_key + ' == ' + right_key + ")"
         joined_frame = eval(eval_str)
         return SnowflakeDataframe(sf_table=joined_frame, sf_base=joined_frame)
+
+    def get_index_names(self):
+        #return self.columns
+        return ["just_a_dummy_in_order_to_skip_machanism_inb_upper_layers"]
+
+
+    def groupby_agg(
+            self,
+            by,
+            axis,
+            op,
+            groupby_args,
+            **kwargs
+    ):
+        aggregator = ""
+        if op == "sum":
+            aggregator = "sum"
+
+        diff = list(set(self.columns) - set(by.columns))
+        print("DIFF: <<<<<<<", str(diff))
+        new_frame = self._partitions.group_by(by.columns).function(aggregator)(diff[0])
+        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
+
+    def sort_rows(
+            self,
+            columns,
+            ascending,
+            ignore_index,
+            na_position
+
+    ):
+        print("COLUMNS +++++++++", str(columns))
+        command_string = 'self._partitions.sort('
+        for item in columns:
+            for item2 in self.columns:
+                if item in item2:
+                    command_string += 'col(' + str(item2) + '),'
+        command_string = command_string[:-1] + ')'
+        print("COMAND STRING: ", str(command_string))
+        new_frame = eval(command_string)
+        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)

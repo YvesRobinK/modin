@@ -497,6 +497,7 @@ class DataFrame(BasePandasDataset):
         elif hashable(by) and not isinstance(by, (pandas.Grouper, FrozenList)):
             drop = by in self.columns
             idx_name = by
+
             if by is not None and by in self._query_compiler.get_index_names(axis):
                 # In this case we pass the string value of the name through to the
                 # partitions. This is more efficient than broadcasting the values.
@@ -562,6 +563,7 @@ class DataFrame(BasePandasDataset):
                 ):
                     names = [o.name if isinstance(o, Series) else o for o in by]
                     raise KeyError(next(x for x in names if x not in self))
+        print("Here By", str(by))
         return DataFrameGroupBy(
             self,
             by,
@@ -3117,7 +3119,6 @@ class DataFrame(BasePandasDataset):
         # Shortcut if key is an actual column
         is_mi_columns = self._query_compiler.has_multiindex(axis=1)
         try:
-            print("Columns:  ",str(self.columns))
             if key in self.columns and not is_mi_columns:
                 return self._getitem_column(key)
         except (KeyError, ValueError, TypeError):

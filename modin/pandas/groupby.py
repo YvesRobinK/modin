@@ -1638,6 +1638,7 @@ class DataFrameGroupBy(ClassLogger):
         else:
             groupby_qc = self._query_compiler
 
+        print("THIS IS _BY", str(self._by))
         return type(self._df)(
             query_compiler=qc_method(
                 groupby_qc,

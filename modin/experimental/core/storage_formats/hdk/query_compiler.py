@@ -261,6 +261,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         if is_bool_indexer(key):
             return self.default_to_pandas(lambda df: df[key])
 
+        print("Self columns: ", str(self.columns))
+        for k in key:
+            print("Key: ", str(k))
         if any(k not in self.columns for k in key):
             raise KeyError(
                 "{} not index".format(
@@ -324,9 +327,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             index,
             columns,
     ):
-        print("Index+++++++++++++++++", str(index))
-        print("Index type+++++++++++++++++", str(type(index._query_compiler._modin_frame._partitions)))
-        print("Columns+++++++++++++++++", str(columns))
         return self.__constructor__(
             self._modin_frame.take_2d_labels_or_positional(
                 row_positions=index
@@ -731,10 +731,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
              sort: bool = False,
              validate: bool = False
     ):
-        print("Self type; ", str(type(self._modin_frame)))
-        print("Other type; ", str(type(other._modin_frame)))
-        if isinstance(self._modin_frame, SnowflakeDataframe):
-            print("We heeeeeerrrreeeee")
         return self.__constructor__(self._modin_frame.join(other, on))
 
     def _bin_op(self, other, op_name, **kwargs):
@@ -961,8 +957,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
     @property
     def dtypes(self):
-        print("we are here 2")
-        print("ModinFrame", str(type(self._modin_frame)))
         return self._modin_frame.dtypes
 
 

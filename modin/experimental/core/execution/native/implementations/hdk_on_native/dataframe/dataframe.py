@@ -2063,8 +2063,6 @@ class HdkOnNativeDataframe(PandasDataframe):
         -------
         DbTable or pyarrow.Table
         """
-
-        print("Op/Type: ", str(type(self._op)))
         mode = self._force_execution_mode
         assert mode != "lazy", "Unexpected execution triggered on lazy frame!"
 
@@ -2083,7 +2081,7 @@ class HdkOnNativeDataframe(PandasDataframe):
         else:
             partitions = self._partition_mgr_cls.run_exec_plan(self._op)
 
-        print("This is the op_type: ", str(self._op), "This is the op: ", str(str(self._op)))
+
         self._partitions = partitions
         self._op = FrameNode(self)
         return partitions[0][0].get()
@@ -2783,6 +2781,7 @@ class HdkOnNativeDataframe(PandasDataframe):
                 f"Frame contain columns with unsupported data-types: {unsupported_cols}. "
                 + "All operations with this frame will be default to pandas!"
             )
+
 
         return cls(
             new_parts,
