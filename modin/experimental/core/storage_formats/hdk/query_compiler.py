@@ -264,12 +264,14 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         print("Self columns: ", str(self.columns))
         for k in key:
             print("Key: ", str(k))
+        """
         if any(k not in self.columns for k in key):
             raise KeyError(
                 "{} not index".format(
                     str([k for k in key if k not in self.columns]).replace(",", "")
                 )
             )
+        """
         return self.getitem_column_array(key)
 
     # Merge

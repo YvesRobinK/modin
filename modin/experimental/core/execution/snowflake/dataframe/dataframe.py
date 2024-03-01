@@ -18,6 +18,8 @@ from snowflake.snowpark.functions import col
 
 from pandas import Series
 
+OPERATORS = ['*', '-', '+', '/']
+
 def _map_to_dtypes(
         sf_type
 ):
@@ -155,9 +157,22 @@ class SnowflakeDataframe():
             col_labels: Optional[List[Hashable]] = None,
             col_positions: Optional[List[int]] = None
     ):
-
         if not (col_labels is None):
-            return SnowflakeDataframe(sf_table=self._partitions.select(col_labels), sf_base=self._partitions)
+            row_op_list = []
+            for item in col_labels:
+                for op in OPERATORS:
+                    if op in item:
+                        row_op_list.append((item.split(' ')[0], item.split(' ')[1] ,item.split(' ')[-1]))
+
+            print("ROW OP LIST :   ", str(row_op_list))
+            print("ROW OP LIST :   ", str(row_op_list))
+            command_string = 'self._partitions.select_expr('
+            for item in col_labels:
+                command_string += '"' + str(item) + '", '
+            command_string = command_string[:-2] + ')'
+            print("COMMAND STRING:", str(command_string))
+            new_frame = eval(command_string)
+            return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
 
         if not (row_positions is None):
             #self._partitions.with_columne_renamed(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20"), "index")
