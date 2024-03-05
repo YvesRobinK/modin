@@ -261,9 +261,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         if is_bool_indexer(key):
             return self.default_to_pandas(lambda df: df[key])
 
-        print("Self columns: ", str(self.columns))
-        for k in key:
-            print("Key: ", str(k))
+        #print("Self columns: ", str(self.columns))
+        #for k in key:
+         #   print("Key: ", str(k))
         """
         if any(k not in self.columns for k in key):
             raise KeyError(

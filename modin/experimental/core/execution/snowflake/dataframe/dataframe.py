@@ -164,24 +164,20 @@ class SnowflakeDataframe():
                     if op in item:
                         row_op_list.append((item.split(' ')[0], item.split(' ')[1] ,item.split(' ')[-1]))
 
-            print("ROW OP LIST :   ", str(row_op_list))
-            print("ROW OP LIST :   ", str(row_op_list))
             command_string = 'self._partitions.select_expr('
             for item in col_labels:
                 command_string += '"' + str(item) + '", '
             command_string = command_string[:-2] + ')'
-            print("COMMAND STRING:", str(command_string))
             new_frame = eval(command_string)
             return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
 
         if not (row_positions is None):
             #self._partitions.with_columne_renamed(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20"), "index")
             #return SnowflakeDataframe(sf_table=self._partitions.select(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20")))
-            print("Schema 2: ", str(self._partitions.columns))
+            #print("Row positions columns:", str(row_positions._query_compiler._modin_frame.columns))
             col_name = row_positions._query_compiler._modin_frame.columns[0]
             com_string = 'self._partitions.filter(' + col_name + ')'
             res = eval(str(com_string))
-            print("Schema 3: ", str(res.columns))
             #return SnowflakeDataframe(sf_table=self._partitions.filter(str(row_positions._query_compiler._modin_frame._partitions.columns[0])))
             return SnowflakeDataframe(sf_table=res,sf_base=self._partitions)
         return self
@@ -209,20 +205,22 @@ class SnowflakeDataframe():
         if op_name == "eq":
             column_name = self.columns[0]
             expr_string = 'self._partitions.select_expr("' + column_name + ' == ' + str(other) + '")'
-            print("EVALSTRING: ", str(expr_string))
+
             new_table = eval(str(expr_string))
             new_table = self._partitions.select(col(column_name) == str(other))
-            print("Schema: " ,str(new_table.schema))
+
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
 
         if op_name == "lt":
             column_name = self.columns[0]
+
             expr_string = 'self._partitions.select_expr("' + column_name + ' < ' + str(other) + '")'
             new_table = eval(str(expr_string))
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
 
         if op_name == "gt":
             column_name = self.columns[0]
+
             expr_string = 'self._partitions.select_expr("' + column_name + ' > ' + str(other) + '")'
             new_table = eval(str(expr_string))
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
