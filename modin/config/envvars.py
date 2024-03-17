@@ -587,6 +587,12 @@ class SnowFlakeDatabaseName(EnvironmentVariable, type=str):
     """
     varname = "SNOWFLAKE_DB_NAME"
 
+class SnowFlakeWarehouseName(EnvironmentVariable, type=str):
+    """
+    Stores connection Parameters for the Snowflake connection.
+    """
+    varname = "SNOWFLAKE_WAREHOUSE_NAME"
+
 class HdkLaunchParameters(EnvironmentVariable, type=dict):
     """
     Additional command line options for the HDK engine.

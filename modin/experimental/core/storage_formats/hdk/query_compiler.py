@@ -98,10 +98,8 @@ def build_method_wrapper(name, method):
             if is_inoperable([self, args, kwargs]):
                 if default_method is None:
                     raise NotImplementedError("Frame contains data of unsupported types.")
-
                 return default_method(*args, **kwargs)
         try:
-
             return method(self, *args, **kwargs)
         # Defaulting to pandas if `NotImplementedError` was arisen
         except NotImplementedError as err:
@@ -498,9 +496,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         kwargs.pop("skipna", None)
         kwargs.pop("numeric_only", None)
 
-        print("FRame type:>>>>>>>>>>>>>>>>>>>>>>>>> ", str(type(self._modin_frame)))
+
         new_frame = self._modin_frame.agg(agg)
-        print("new_Frame type:>>>>>>>>>>>>>>>>>>>>>>>>> ", str(type(new_frame)))
         from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
         if isinstance(new_frame, SnowflakeDataframe):
             return self.__constructor__(new_frame, shape_hint="row")
@@ -918,6 +915,13 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
         self._shape_hint = "column"
         return self
+
+    def __ror__(self, other):
+        return self._modin_frame._or(other)
+
+    def __or__(self, other):
+        return self.__constructor__(self._modin_frame._or(other))
+
 
     def is_series_like(self):
         if self._shape_hint is not None:

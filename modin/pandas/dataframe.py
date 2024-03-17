@@ -563,7 +563,6 @@ class DataFrame(BasePandasDataset):
                 ):
                     names = [o.name if isinstance(o, Series) else o for o in by]
                     raise KeyError(next(x for x in names if x not in self))
-        print("Here By", str(by))
         return DataFrameGroupBy(
             self,
             by,
@@ -1673,6 +1672,7 @@ class DataFrame(BasePandasDataset):
         """
         Alter axes labels.
         """
+
         inplace = validate_bool_kwarg(inplace, "inplace")
         if mapper is None and index is None and columns is None:
             raise TypeError("must pass an index to rename")
@@ -1684,6 +1684,7 @@ class DataFrame(BasePandasDataset):
         # results after.
         kwargs["inplace"] = False
         if axis is not None:
+            print("We here axis: ". str(axis))
             axis = self._get_axis_number(axis)
         if index is not None or (mapper is not None and axis == 0):
             new_index = pandas.DataFrame(index=self.index).rename(**kwargs).index
