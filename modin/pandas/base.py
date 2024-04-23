@@ -380,6 +380,9 @@ class BasePandasDataset(ClassLogger):
                 raise TypeError("Cannot do operation with improper dtypes")
         return result
 
+    def localize(self):
+        return self._query_compiler._modin_frame._partitions.to_pandas()
+
     def _validate_function(self, func, on_invalid=None):
         """
         Check the validity of the function which is intended to be applied to the frame.
@@ -456,7 +459,9 @@ class BasePandasDataset(ClassLogger):
             return self._default_to_pandas(
                 getattr(self._pandas_class, op), other, **kwargs
             )
+
         other = self._validate_other(other, axis, dtype_check=True)
+
         exclude_list = [
             "__add__",
             "__radd__",
@@ -467,6 +472,7 @@ class BasePandasDataset(ClassLogger):
             "__xor__",
             "__rxor__",
         ]
+
         if op in exclude_list:
             kwargs.pop("axis")
 

@@ -1531,6 +1531,7 @@ class Series(BasePandasDataset):
         self,
         index=None,
         *,
+        columns = None,
         axis=None,
         copy=None,
         inplace=False,
@@ -1540,6 +1541,12 @@ class Series(BasePandasDataset):
         """
         Alter Series index labels or name.
         """
+
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            self._query_compiler._modin_frame = self._query_compiler._modin_frame.rename(columns)
+            return self
+
         non_mapping = is_scalar(index) or (
             is_list_like(index) and not is_dict_like(index)
         )

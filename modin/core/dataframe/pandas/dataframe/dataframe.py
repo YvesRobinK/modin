@@ -164,6 +164,10 @@ class PandasDataframe(ClassLogger):
                 f"Column widths cannot be negative: {self._column_widths_cache}",
             )
 
+
+
+
+
     @property
     def num_parts(self) -> int:
         """

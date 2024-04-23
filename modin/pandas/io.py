@@ -220,7 +220,6 @@ def read_csv(
     storage_options: StorageOptions = None,
     dtype_backend: Union[DtypeBackend, NoDefault] = no_default,
 ) -> "DataFrame" | TextFileReader:
-    print("We are executing here <<<<<<<<<<<<<<<<<<1<<<<<<<<<<<<<<<<<<<")
 
     # ISSUE #2408: parse parameter shared with pandas read_csv and read_table and update with provided args
     _pd_read_csv_signature = {
@@ -396,12 +395,13 @@ def read_gbq(
 
     return ModinObjects.DataFrame(query_compiler=FactoryDispatcher.read_gbq(**kwargs))
 
-
+from snowflake.snowpark import Session
 def from_sf_table(
-        tablename: str
+        tablename: str,
+        session: Session = None,
 ) -> DataFrame:
     from modin.experimental.core.execution.snowflake.io import SnowflakeIO
-    return ModinObjects.DataFrame(query_compiler=SnowflakeIO.from_sf_table(SnowflakeIO,tablename))
+    return ModinObjects.DataFrame(query_compiler=SnowflakeIO.from_sf_table(SnowflakeIO,tablename, session=session))
 
 @_inherit_docstrings(pandas.read_html, apilink="pandas.read_html")
 @expanduser_path_arg("io")

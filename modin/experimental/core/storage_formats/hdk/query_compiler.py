@@ -816,7 +816,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         return self._bin_op(other, "ne", **kwargs)
 
     def __and__(self, other, **kwargs):
-        return self._bool_op(other, "and", **kwargs)
+        return self.__constructor__(self._modin_frame._and(other))
+        #return self._bool_op(other, "and", **kwargs)
 
     def __or__(self, other, **kwargs):
         return self._bool_op(other, "or", **kwargs)
@@ -921,6 +922,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
     def __or__(self, other):
         return self.__constructor__(self._modin_frame._or(other))
+
+    def __rand__(self, other):
+        return self.__constructor__(self._modin_frame._and(other))
 
 
     def is_series_like(self):

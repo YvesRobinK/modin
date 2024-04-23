@@ -1673,6 +1673,11 @@ class DataFrame(BasePandasDataset):
         Alter axes labels.
         """
 
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            self._query_compiler._modin_frame = self._query_compiler._modin_frame.rename(columns)
+            return self
+
         inplace = validate_bool_kwarg(inplace, "inplace")
         if mapper is None and index is None and columns is None:
             raise TypeError("must pass an index to rename")
@@ -1680,11 +1685,11 @@ class DataFrame(BasePandasDataset):
         # doesn't ignore None values passed in, so we have to filter them ourselves.
         args = locals()
         kwargs = {k: v for k, v in args.items() if v is not None and k != "self"}
+        del kwargs['SnowflakeDataframe']
         # inplace should always be true because this is just a copy, and we will use the
         # results after.
         kwargs["inplace"] = False
         if axis is not None:
-            print("We here axis: ". str(axis))
             axis = self._get_axis_number(axis)
         if index is not None or (mapper is not None and axis == 0):
             new_index = pandas.DataFrame(index=self.index).rename(**kwargs).index
@@ -1705,7 +1710,7 @@ class DataFrame(BasePandasDataset):
             obj.index = new_index
         if new_columns is not None:
             obj.columns = new_columns
-
+        print("OBJ TYPE: ", type(obj))
         if not inplace:
             return obj
 

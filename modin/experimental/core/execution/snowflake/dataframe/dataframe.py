@@ -7,7 +7,7 @@ import snowflake.snowpark.types
 import modin.pandas.io
 from modin.core.dataframe.pandas.dataframe.dataframe import PandasDataframe
 from modin.core.dataframe.pandas.metadata import ModinDtypes
-from modin.experimental.core.execution.native.implementations.hdk_on_native.df_algebra import GroupbyAggNode, DFAlgNode
+
 
 from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 
@@ -47,15 +47,17 @@ class SnowflakeDataframe():
             self,
             sf_table: table = None,
             sf_base: table = None,
-            op: DFAlgNode = None,
-            or_statement: str = None
+            op = None,
+            or_statement: str = None,
+            and_statement: str = None,
+            sf_session = None
     ):
         self._partitions: table = sf_table
         self._op = op
         self._base_partition = sf_base
         self._shape_hint = "row"
         self.columns = sf_table.columns
-
+        self._sf_session= sf_session
         self._sf_types = []
         self.schema = sf_table.schema
         for col in self.schema:
@@ -65,6 +67,7 @@ class SnowflakeDataframe():
 
         self.dtypes = Series([x for x in dtypes if x not in NON_NUMERIC_DTYPES ])
         self.or_statement = or_statement
+        self.and_statement = and_statement
         self.index = self.columns
 
     """
@@ -159,34 +162,47 @@ class SnowflakeDataframe():
             col_positions: Optional[List[int]] = None
     ):
         if not (col_labels is None):
-            print("IN col_labels")
+            print("COL_ABELS: ", str(col_labels), "COL_LABELS_TYPE_ ", str(type(col_labels)))
             row_op_list = []
             for item in col_labels:
                 for op in OPERATORS:
                     if op in item:
                         row_op_list.append((item.split(' ')[0], item.split(' ')[1], item.split(' ')[-1]))
-            command_string = 'self._partitions.select_expr('
+            if len(row_op_list) > 0:
+                command_string = 'self._partitions.select_expr('
+            else:
+                command_string = 'self._partitions.select('
             for item in col_labels:
                 command_string += '"' + str(item) + '", '
             command_string = command_string[:-2] + ')'
-            print("Command_string; ", command_string)
+
             new_frame = eval(command_string)
             return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
 
         if not (row_positions is None):
+            print("ROW_LABELS: ", str(row_positions._query_compiler._modin_frame.columns[0]), "ROW_LABELS_TYPE_ ", str(type(row_positions)))
+            print("ROW_Columns")
             if not (row_positions._query_compiler._modin_frame.or_statement is None):
-                print("OR STATEMENT", row_positions._query_compiler._modin_frame.or_statement)
                 com_string = 'self._partitions.filter('+row_positions._query_compiler._modin_frame.or_statement
-                print("COMCOMSTRING>>>>", com_string)
                 res = eval(com_string)
                 return SnowflakeDataframe(sf_table=res, sf_base=self._partitions)
             #self._partitions.with_columne_renamed(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20"), "index")
             #return SnowflakeDataframe(sf_table=self._partitions.select(row_positions._query_compiler._modin_frame._partitions.col("P_SIZE < 20")))
             #print("Row positions columns:", str(row_positions._query_compiler._modin_frame.columns))
+
             col_name = row_positions._query_compiler._modin_frame.columns[0]
+            if "DEC1997" in col_name:
+                col_name = col_name.replace("DEC", "Dec")
             com_string = 'self._partitions.filter(' + col_name + ')'
-            print("COM_STRING: ", com_string)
+            print("COL NAME:", col_name, "COL_NAME_TYPE:", str(type(col_name)))
+            print("COM  STRING : ", com_string)
             res = eval(str(com_string))
+            """
+            res = self._partitions
+            for item in row_positions._query_compiler._modin_frame.columns:
+                com_string = 'res._partitions.filter(' + item + ')'
+                res = eval(com_string)
+            """
             #return SnowflakeDataframe(sf_table=self._partitions.filter(str(row_positions._query_compiler._modin_frame._partitions.columns[0])))
             return SnowflakeDataframe(sf_table=res, sf_base=self._partitions)
         return self
@@ -222,11 +238,11 @@ class SnowflakeDataframe():
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
         if op_name == "eq":
             column_name = self.columns[0]
-            expr_string = 'self._partitions.select_expr("' + column_name + ' == ' + str(other) + '")'
-
+            expr_string = 'self._partitions.select_expr("' + column_name + " = '" + str(other) + "'" + '" )'
+            #print("EXPR STRING: ", expr_string)
             new_table = eval(str(expr_string))
             new_table = self._partitions.select(col(column_name) == str(other))
-
+            print("New_table", new_table.columns)
             return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
 
         if op_name == "lt":
@@ -345,24 +361,67 @@ class SnowflakeDataframe():
             self,
             other
     ):
-        print("Self: ", self.columns[0])
-        print("Other: ", other.columns[0])
+
         left_expr = self.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
         right_expr = other.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
-        command_string = 'self._partitions.filter((col("' + left_expr[0] + '") ' + str(left_expr[1]) + '= "' + " ".join(left_expr[2:]) + '")'
+        if left_expr[1] == "=":
+            left_expr[1] = "=="
+            right_expr[1] = "=="
+        command_string = 'self._partitions.filter((col("' + left_expr[0] + '") ' + str(left_expr[1]) + ' "' + " ".join(left_expr[2:]) + '")'
         command_string += " | "
-        command_string = command_string + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + '= "' + " ".join(right_expr[2:]) + '"))'
-        print("Command string : ", str(command_string))
+        command_string = command_string + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + ' "' + " ".join(right_expr[2:]) + '"))'
+
         #df.filter((col("A") > 1) & (col("B") < 100))
         #new_frame = self._partitions.filter(self.columns[0] + " or " + other.columns[0])
         #print(new_frame.to_pandas())
         new_frame = eval(command_string)
         #new_frame = self._partitions
         #new_frame = new_frame.rename(col(new_frame.columns[0]), '_or({0} {1}, {2}, {3}))'.format(left_expr[0], left_expr[1], left_expr[2:]," ".join(left_expr[2:]), " ".join(right_expr[2:])))
-        print("COl string: ", str('_or({0} {1}, {2}, {3}))'.format(left_expr[0], left_expr[1], left_expr[2:]," ".join(left_expr[2:]), " ".join(right_expr[2:]))))
-        print("New_frame_columns: ", str(new_frame.columns[0]))
-        or_statement = '(col("' + left_expr[0] + '") ' + str(left_expr[1]) + '= "' + " ".join(left_expr[2:]) + '")'
+
+        or_statement = '(col("' + left_expr[0] + '") ' + str(left_expr[1]) + ' "' + " ".join(left_expr[2:]) + '")'
         or_statement += " | "
-        or_statement = or_statement + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + '= "' + " ".join(
+        or_statement = or_statement + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + ' "' + " ".join(
             right_expr[2:]) + '"))'
         return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition, or_statement=or_statement)
+
+    def _and(
+            self,
+            other
+    ):
+
+        left_expr = self.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
+        right_expr = other.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
+        if left_expr[1] == "=":
+            left_expr[1] = "=="
+            right_expr[1] = "=="
+        command_string = 'self._partitions.filter((col("' + left_expr[0] + '") ' + str(left_expr[1]) + ' "' + " ".join(
+            left_expr[2:]) + '")'
+        command_string += " | "
+        command_string = command_string + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + ' "' + " ".join(
+            right_expr[2:]) + '"))'
+
+        # df.filter((col("A") > 1) & (col("B") < 100))
+        # new_frame = self._partitions.filter(self.columns[0] + " or " + other.columns[0])
+        # print(new_frame.to_pandas())
+        new_frame = eval(command_string)
+        # new_frame = self._partitions
+        # new_frame = new_frame.rename(col(new_frame.columns[0]), '_or({0} {1}, {2}, {3}))'.format(left_expr[0], left_expr[1], left_expr[2:]," ".join(left_expr[2:]), " ".join(right_expr[2:])))
+
+        or_statement = '(col("' + left_expr[0] + '") ' + str(left_expr[1]) + ' "' + " ".join(left_expr[2:]) + '")'
+        or_statement += " & "
+        or_statement = or_statement + '(col("' + right_expr[0] + '") ' + str(right_expr[1]) + ' "' + " ".join(
+            right_expr[2:]) + '"))'
+        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition, or_statement=or_statement)
+
+    def rename(
+            self,
+            columns: {str: str} = None
+    ):
+        command_dict = {}
+        for key in columns.keys():
+            for df_col in self.columns:
+                print("HERE: ", key, "/", df_col)
+                if key in df_col:
+                    command_dict[col(df_col)] = columns[key]
+        new_frame = self._partitions.rename(command_dict)
+        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
