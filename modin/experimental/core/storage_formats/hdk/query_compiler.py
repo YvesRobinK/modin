@@ -25,7 +25,7 @@ from pandas._libs.lib import no_default
 from pandas.core.common import is_bool_indexer
 from pandas.core.dtypes.common import is_bool_dtype, is_integer_dtype, is_list_like
 
-from modin.core.execution.snowflake.dataframe import SnowflakeDataframe
+
 from modin.core.storage_formats.base.query_compiler import BaseQueryCompiler
 from modin.core.storage_formats.base.query_compiler import (
     _get_axis as default_axis_getter,
@@ -863,6 +863,13 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
 
     def setitem(self, axis, key, value):
+        print("We here")
+        print("_modin_frame type: ", type(self._modin_frame))
+
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            print("We not here")
+            return self._modin_frame.setitem(axis, key, value)
         if axis == 1 or not isinstance(value, type(self)):
             raise NotImplementedError(
                 f"HDK's setitem does not support such set of parameters: axis={axis}, value={value}."
