@@ -4,6 +4,8 @@ from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import 
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode
 
+from snowflake.snowpark.types import StringType
+
 
 class Frame:
     def __init__(self,
@@ -33,11 +35,18 @@ class Frame:
         print(f"{column} {operator} '{other}'")
         commandstring ='self._frame.select_expr("' + "'" + column + "' = '" + str(other) +"'" + '" )'
         print(commandstring)
-
+        print(other)
+        print("Columne", column)
         if isinstance(other, str):
             print("sanity chekc")
-            new_frame = eval(commandstring)
+
+            #new_frame = eval(commandstring)
+            print("frame_type: ", type(self._frame))
+            new_frame = self._frame.select(col(column) == str(other))
+            #new_frame = self._frame.select_expr(f"({column} {operator} ({other}).cast(StringType)")
+
         else:
+            print("sometimes here")
             new_frame = self._frame.select_expr(f"{column} {operator} {other}")
         return Frame(new_frame)
 
