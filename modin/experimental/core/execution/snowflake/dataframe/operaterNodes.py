@@ -78,6 +78,19 @@ class ComparisonNode(Node):
         super().__init__(prev=prev, frame=frame)
 
 
+class AggNode(Node):
+    def __init__(self,
+                 colnames: str = None,
+                 agg_dict=None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "aggNode"
+        self.colnames = colnames
+        self.agg_dict = agg_dict
+        super().__init__(prev=prev, frame=frame)
+
+
 class BinOpNode(Node):
     def __init__(self,
                  colnames: str = None,

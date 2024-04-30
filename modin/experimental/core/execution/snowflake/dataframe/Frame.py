@@ -42,6 +42,13 @@ class Frame:
         new_frame = frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
+    def agg(self,
+            agg_dict=None
+            ):
+        new_frame = self._frame.agg(agg_dict)
+        return Frame(new_frame)
+
+
     def logical_expression(self,
                            left_comp=None,
                            right_comp=None,

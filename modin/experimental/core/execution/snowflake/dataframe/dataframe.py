@@ -21,7 +21,7 @@ from pandas import Series
 from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode, BinOpNode
+    LogicalNode, BinOpNode, AggNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -105,17 +105,23 @@ class SnowflakeDataframe:
             agg: str
     ):
 
-        schema = self._partitions.schema
+        schema = self._frame._frame.schema
         command_dict = {}
         for col in schema:
             if isinstance(col.datatype, _NumericType):
                 command_dict[col.name] = agg
-        new_partitions = self._partitions.agg(command_dict)
-
-        return SnowflakeDataframe(
-            sf_table=new_partitions,
-            sf_base=self._base_partition
+        new_frame = self._frame.agg(
+            agg_dict=command_dict
         )
+        return SnowflakeDataframe(sf_table=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=AggNode(
+                                      colnames=command_dict.values(),
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
 
     @property
     def _has_unsupported_data(
@@ -172,7 +178,7 @@ class SnowflakeDataframe:
                                       op_tree=SelectionNode(
                                           colnames=col_labels,
                                           prev=self.op_tree,
-                                          frame= new_frame
+                                          frame=new_frame
                                       ))
 
             return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition, virtual_frame=new_virt_frame)
@@ -345,7 +351,6 @@ class SnowflakeDataframe:
             on
     ):
         new_frame = None
-
         new_frame = self._frame.join(
             other_frame=other._query_compiler._modin_frame._frame._frame,
             own_index=self._join_index,
