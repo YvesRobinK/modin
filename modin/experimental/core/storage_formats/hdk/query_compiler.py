@@ -92,9 +92,8 @@ def build_method_wrapper(name, method):
         # to fallback to pandas on 'NotImplementedError' then the call of this
         # private method is caused by some public QC method, so we catch
         # the exception here and do fallback properly
-
         default_method = getattr(super(type(self), self), name, None)
-        if not (isinstance(self._modin_frame._partitions, Table)):
+        if not (isinstance(self._modin_frame._frame._frame, Table)):
             if is_inoperable([self, args, kwargs]):
                 if default_method is None:
                     raise NotImplementedError("Frame contains data of unsupported types.")
@@ -509,6 +508,10 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
         return self.__constructor__(new_frame, shape_hint="row")
 
+    def set_index(self,
+                  index
+                  ):
+        return self._modin_frame.set_index(index)
     def _get_index(self):
         """
         Return frame's index.
@@ -730,6 +733,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
              sort: bool = False,
              validate: bool = False
     ):
+        print("This here")
         return self.__constructor__(self._modin_frame.join(other, on))
 
     def _bin_op(self, other, op_name, **kwargs):
@@ -814,13 +818,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
     def ne(self, other, **kwargs):
         return self._bin_op(other, "ne", **kwargs)
-
-    def __and__(self, other, **kwargs):
-        return self.__constructor__(self._modin_frame._and(other))
-        #return self._bool_op(other, "and", **kwargs)
-
-    def __or__(self, other, **kwargs):
-        return self._bool_op(other, "or", **kwargs)
 
     def _bool_op(self, other, op, **kwargs):  # noqa: GL08
         def check_bool(obj):
@@ -928,10 +925,10 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         return self._modin_frame._or(other)
 
     def __or__(self, other):
-        return self.__constructor__(self._modin_frame._or(other))
+        return self.__constructor__(self._modin_frame.logic_op(other, logic_operator="or"))
 
-    def __rand__(self, other):
-        return self.__constructor__(self._modin_frame._and(other))
+    def __and__(self, other):
+        return self.__constructor__(self._modin_frame.logic_op(other, logic_operator="and"))
 
 
     def is_series_like(self):

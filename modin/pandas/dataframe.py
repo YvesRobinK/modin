@@ -1142,6 +1142,11 @@ class DataFrame(BasePandasDataset):
         """
         Join columns of another ``DataFrame``.
         """
+
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            return self.__class__(
+                query_compiler=self._query_compiler.__class__(self._query_compiler._modin_frame.join(other, on)))
         if on is not None and not isinstance(other, (Series, DataFrame)):
             raise ValueError(
                 "Joining multiple DataFrames only supported for joining on index"
@@ -1909,6 +1914,9 @@ class DataFrame(BasePandasDataset):
         """
         Set the ``DataFrame`` index using existing columns.
         """
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            return self.__class__(query_compiler=self._query_compiler.__class__(self._query_compiler._modin_frame.set_index(keys)))
         inplace = validate_bool_kwarg(inplace, "inplace")
         if not isinstance(keys, list):
             keys = [keys]
