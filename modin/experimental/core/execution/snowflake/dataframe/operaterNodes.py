@@ -46,7 +46,6 @@ class JoinNode(Node):
         self.self_colnames = self_colnames
         self.other_colnames = other_colnames
         self.colnames = list(set(self.self_colnames) | set(self.other_colnames))
-        print(self.colnames)
         super().__init__(prev=prev, frame=frame)
 
 
@@ -132,7 +131,7 @@ class LogicalNode(Node):
         self.left_comp = left_comp
         self.right_comp = right_comp
         self.logical_operator = logical_operator
-        super().__init__(prev=right_comp, frame=frame)
+        super().__init__(prev=left_comp, frame=frame)
 
 
 class FilterNode(Node):
@@ -161,7 +160,6 @@ class VirtualFrame:
         res = []
         for node in self.node_list:
             for col_name in col_names:
-                print(col_name)
                 if node.colname == col_name:
                     res.append(node)
         return self.__class__(res)

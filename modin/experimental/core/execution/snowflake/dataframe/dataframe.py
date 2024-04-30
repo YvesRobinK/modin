@@ -184,8 +184,6 @@ class SnowflakeDataframe:
             return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition, virtual_frame=new_virt_frame)
 
         if not (row_positions is None):
-            print("row_positions type", type(row_positions))
-            print("Node at row_positions", type(row_positions._query_compiler._modin_frame.op_tree))
             if isinstance(row_positions, modin.pandas.series.Series) and \
                     isinstance(row_positions._query_compiler._modin_frame.op_tree, ComparisonNode):
                 new_frame = self._frame.filter(row_positions._query_compiler._modin_frame.op_tree)
@@ -251,6 +249,7 @@ class SnowflakeDataframe:
 
         if op_name in comp_dict.keys() and not isinstance(other, self.__class__):
             assert len(self.columns) == 1, "Comparisons can only be performed on one column"
+            print(self.schema)
             new_frame = self._frame.bin_comp(
                 column=self.columns[0],
                 operator=comp_dict[op_name],
@@ -270,21 +269,16 @@ class SnowflakeDataframe:
                                       ))
 
         if op_name in operator_dict.keys() and isinstance(other, self.__class__):
-            print("We in herererer")
             assert len(self.columns) == 1, "Series operation can only be performed on one column"
             assert len(other.columns) == 1, "Series operation can only be performed on one column"
             left_column = self.op_tree.prev.colnames[0]
             right_column = other.op_tree.prev.colnames[0]
             curr_node = self.op_tree
             while curr_node != None:
-                print(curr_node.name)
-                print("Left check ", left_column, "----", str(left_column in curr_node.colnames))
-                print("Right check ", right_column, "----", str(right_column in curr_node.colnames))
                 if left_column in curr_node.colnames and \
                         right_column in curr_node.colnames:
                     break
                 curr_node = curr_node.prev
-            print("Frame type: ", type(curr_node.frame))
             new_frame = self._frame.bin_op(
                 left_column=left_column,
                 right_column=right_column,
@@ -458,7 +452,7 @@ class SnowflakeDataframe:
         command_dict = {}
         for key in columns.keys():
             for df_col in self.columns:
-                print("HERE: ", key, "/", df_col)
+
                 if key in df_col:
                     command_dict[col(df_col)] = columns[key]
         new_frame = self._partitions.rename(command_dict)

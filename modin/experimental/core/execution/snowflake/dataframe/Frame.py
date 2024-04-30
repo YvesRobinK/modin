@@ -30,7 +30,15 @@ class Frame:
                  operator: str = None,
                  other=None
                  ):
-        new_frame = self._frame.select_expr(f"{column} {operator} {other}")
+        print(f"{column} {operator} '{other}'")
+        commandstring ='self._frame.select_expr("' + "'" + column + "' = '" + str(other) +"'" + '" )'
+        print(commandstring)
+
+        if isinstance(other, str):
+            print("sanity chekc")
+            new_frame = eval(commandstring)
+        else:
+            new_frame = self._frame.select_expr(f"{column} {operator} {other}")
         return Frame(new_frame)
 
     def bin_op(self,
