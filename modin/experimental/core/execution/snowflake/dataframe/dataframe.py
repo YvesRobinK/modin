@@ -19,7 +19,7 @@ from snowflake.snowpark.functions import col
 
 from pandas import Series
 
-
+from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame
 
@@ -50,9 +50,7 @@ NON_NUMERIC_DTYPES = [numpy.dtype('O')]
 
 
 class SnowflakeDataframe:
-
     _query_compiler_cls = DFAlgQueryCompiler
-
 
     def __init__(
             self,
@@ -64,8 +62,10 @@ class SnowflakeDataframe:
             sf_session= None,
             virtual_frame= None
     ):
-        self._partitions: table = sf_table
+        self._frame: table = Frame(sf_table)
+        self._partitions = sf_table
         self._op = op
+
         self._base_partition = sf_base
         self._shape_hint = "row"
         self.columns = sf_table.columns
@@ -174,6 +174,7 @@ class SnowflakeDataframe:
                 res = eval(com_string)
                 return SnowflakeDataframe(sf_table=res, sf_base=self._partitions)
 
+
             value = row_positions._query_compiler._modin_frame.virt_frame.node_list[0].value
             operator = row_positions._query_compiler._modin_frame.virt_frame.node_list[0].operator
             colname = row_positions._query_compiler._modin_frame.virt_frame.node_list[0].colname
@@ -205,47 +206,33 @@ class SnowflakeDataframe:
             op_name,
             **kwargs
     ):
-        if op_name == "le":
+        comp_dict ={
+            "le": "<=",
+            "ge": ">=",
+            "eq": "=",
+            "lt": "<",
+            "gt": ">"
+        }
+        operator_dict={
+
+        }
+
+        if op_name in comp_dict.keys() and not isinstance(other, self.__class__):
             column_name = self.columns[0]
-            expr_string = 'self._partitions.select_expr("' + column_name + ' <= ' + str(other) + '")'
-            new_table = self._partitions.select(col(column_name) <= str(other))
-            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
-        if op_name == "ge":
-            column_name = self.columns[0]
-            expr_string = 'self._partitions.select_expr("' + column_name + ' >= ' + str(other) + '")'
-            new_table = self._partitions.select(col(column_name) >= str(other))
-            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
-        if op_name == "eq":
-            column_name = self.columns[0]
-            expr_string = 'self._partitions.select_expr("' + column_name + " = '" + str(other) + "'" + '" )'
-            #print("EXPR STRING: ", expr_string)
-            new_table = eval(str(expr_string))
             new_table = self._partitions.select(col(column_name) == str(other))
             print("New_table", new_table.columns)
-
             new_virt_frame = copy.deepcopy(self.virt_frame)
-            new_virt_frame.node_list = [ComparisonNode(node.colname, "=", other, node) for node in new_virt_frame.node_list]
-            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition, virtual_frame=new_virt_frame)
+            new_virt_frame.node_list = [ComparisonNode(node.colname, comp_dict[op_name], other, node) for node in new_virt_frame.node_list]
+            return SnowflakeDataframe(
+                sf_table=new_table,
+                sf_base=self._base_partition,
+                virtual_frame=new_virt_frame
+            )
 
-        if op_name == "lt":
-            column_name = self.columns[0]
-
-            expr_string = 'self._partitions.select_expr("' + column_name + ' < ' + str(other) + '")'
-            new_table = eval(str(expr_string))
-            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
-
-        if op_name == "gt":
-            column_name = self.columns[0]
-
-            expr_string = 'self._partitions.select_expr("' + column_name + ' > ' + str(other) + '")'
-            new_table = eval(str(expr_string))
-            return SnowflakeDataframe(sf_table=new_table, sf_base=self._base_partition)
-
-        if op_name == "mul":
-
+        if op_name in comp_dict.keys():
             col_name_self = self.columns[0]
             col_name_other = other.columns[0]
-            command_string = col_name_self + " * " + col_name_other
+            command_string = col_name_self + f" {comp_dict[op_name]} " + col_name_other
             temp_frame = self._base_partition.select(col(col_name_self) * col(col_name_other))
             return SnowflakeDataframe(sf_table=temp_frame, sf_base=self._base_partition)
         return None
@@ -349,7 +336,6 @@ class SnowflakeDataframe:
             self,
             other
     ):
-
         left_expr = self.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
         right_expr = other.columns[0].replace('"', '').replace("'", "")[1:-1].split(' ')
         if left_expr[1] == "=":

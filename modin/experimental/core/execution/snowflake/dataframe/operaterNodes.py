@@ -1,7 +1,6 @@
-
 class Node:
     def __init__(self,
-                 prev= None
+                 prev=None
                  ):
         self.name = "unnamed"
         self.prev = prev
@@ -16,6 +15,7 @@ class ConstructionNode(Node):
         self.colname = colname
         super().__init__(prev=prev)
 
+
 class SelectionNode(Node):
     def __init__(self,
                  colname: str,
@@ -24,12 +24,14 @@ class SelectionNode(Node):
         self.name = "selectionNode"
         self.colname = colname
         super().__init__(prev=prev)
+
+
 class ComparisonNode(Node):
     def __init__(self,
-                colname: str,
-                operator: str,
-                value: str,
-                prev: Node
+                 colname: str,
+                 operator: str,
+                 value: str,
+                 prev: Node
                  ):
         self.name = "comparNode"
         self.colname = colname
@@ -37,9 +39,10 @@ class ComparisonNode(Node):
         self.value = value
         super().__init__(prev=prev)
 
+
 class VirtualFrame:
     def __init__(self,
-                 node_list : [Node] = None
+                 node_list: [Node] = None
                  ):
         self.node_list = node_list
 
@@ -47,8 +50,8 @@ class VirtualFrame:
         return self.__class__(node_list=self.node_list)
 
     def from_col_names(self,
-                      col_names
-                      ):
+                       col_names
+                       ):
         res = []
         for node in self.node_list:
             for col_name in col_names:
