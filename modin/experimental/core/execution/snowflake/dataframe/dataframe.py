@@ -21,7 +21,7 @@ from pandas import Series
 from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode, BinOpNode, AggNode
+    LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -89,17 +89,6 @@ class SnowflakeDataframe:
         self.dtypes = Series([x for x in dtypes if x not in NON_NUMERIC_DTYPES])
 
     @track
-    def groupby_agg(
-            self,
-            by: DFAlgQueryCompiler,
-            axis: int,
-            agg: dict,
-            groupby_args: dict,
-            **kwargs: dict[dict]
-    ):
-        pass
-
-    @track
     def agg(
             self,
             agg: str
@@ -151,7 +140,7 @@ class SnowflakeDataframe:
                 index=index,
                 colnames=self.columns,
                 prev=self.op_tree,
-                frame= self.op_tree.frame
+                frame=self.op_tree.frame
             ),
             key_column=self.key_column,
             join_index=index
@@ -384,14 +373,31 @@ class SnowflakeDataframe:
             groupby_args,
             **kwargs
     ):
-        aggregator = ""
-        if op == "sum":
-            aggregator = "sum"
-
+        comp_dict = {
+            "sum": "sum",
+            "mean": "mean",
+            "min": "min",
+            "max": "max"
+        }
+        print("By: ", by)
+        print("OP: ", list(op.values()))
         diff = list(set(self.columns) - set(by.columns))
 
-        new_frame = self._partitions.group_by(by.columns).function(aggregator)(diff[0])
-        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
+        new_frame = self._frame.groupby_agg(grouping_cols=by.columns,
+                                            aggregator=comp_dict[list(op.values())[0]],
+                                            agg_col=diff
+                                            )
+        return SnowflakeDataframe(sf_table=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=GroupByNode(
+                                      colnames=self.columns,
+                                      grouping_cols=by.columns,
+                                      aggregator=comp_dict[list(op.values())[0]],
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
 
     @track
     def sort_rows(
@@ -402,19 +408,21 @@ class SnowflakeDataframe:
             na_position
 
     ):
-        command_string = 'self._partitions.sort('
-        for item in columns:
-            for item2 in self.columns:
-                if item in item2:
-                    command_string += 'col("' + str(item) + '")'
-                    if ascending[0] == False:
-                        command_string += ".desc(),"
-                    else:
-                        command_string += ".asc(),"
-                    ascending = ascending[1:]
-        command_string = command_string[:-1] + ')'
-        new_frame = eval(command_string)
-        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
+        new_frame = self._frame.sort(dataframe=self,
+                                     columns=columns,
+                                     ascending=ascending
+                                     )
+        return SnowflakeDataframe(sf_table=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=SortNode(
+                                      colnames=self.columns,
+                                      sort_cols=columns,
+                                      ascending=ascending,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
 
     @track
     def _execute(
@@ -452,11 +460,20 @@ class SnowflakeDataframe:
         command_dict = {}
         for key in columns.keys():
             for df_col in self.columns:
-
                 if key in df_col:
-                    command_dict[col(df_col)] = columns[key]
-        new_frame = self._partitions.rename(command_dict)
-        return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition)
+                    command_dict[df_col] = str(columns[key])
+        new_frame = self._frame.rename(rename_dict=command_dict)
+        return SnowflakeDataframe(sf_table=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=RenameNode(
+                                      old_colnames=self.columns,
+                                      new_colnames=list(command_dict.values()),
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
 
     @track
     def setitem(self, axis, key, value):

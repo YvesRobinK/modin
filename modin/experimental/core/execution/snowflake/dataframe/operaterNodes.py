@@ -145,6 +145,33 @@ class FilterNode(Node):
         super().__init__(prev=prev, frame=frame)
 
 
+class SortNode(Node):
+    def __init__(self,
+                 colnames: str,
+                 sort_cols= None,
+                 ascending= None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "sortNode"
+        self.colnames = colnames
+        super().__init__(prev=prev, frame=frame)
+
+class GroupByNode(Node):
+    def __init__(self,
+                 colnames: str,
+                 grouping_cols = None,
+                 aggregator=None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "groupbyNode"
+        self.colnames = colnames
+        self.grouping_cols = grouping_cols
+        self.aggregator = aggregator
+        super().__init__(prev=prev, frame=frame)
+
+
 class VirtualFrame:
     def __init__(self,
                  node_list: [Node] = None
