@@ -381,7 +381,7 @@ class BasePandasDataset(ClassLogger):
         return result
 
     def localize(self):
-        return self._query_compiler._modin_frame._partitions.to_pandas()
+        return self._query_compiler._modin_frame.to_pandas()
 
     def _validate_function(self, func, on_invalid=None):
         """

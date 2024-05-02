@@ -14,14 +14,14 @@ from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 
 from snowflake.snowpark import table
 from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
-from snowflake.snowpark.functions import col
+from snowflake.snowpark.functions import col, lit
 
 from pandas import Series
 
 from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode
+    LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -233,12 +233,14 @@ class SnowflakeDataframe:
             "gt": ">"
         }
         operator_dict = {
-            "mul": "*"
+            "mul": "*",
+            "sub": "-",
+            "div": "/",
+            "add": "+"
         }
 
         if op_name in comp_dict.keys() and not isinstance(other, self.__class__):
             assert len(self.columns) == 1, "Comparisons can only be performed on one column"
-            print(self.schema)
             new_frame = self._frame.bin_comp(
                 column=self.columns[0],
                 operator=comp_dict[op_name],
@@ -263,7 +265,7 @@ class SnowflakeDataframe:
             left_column = self.op_tree.prev.colnames[0]
             right_column = other.op_tree.prev.colnames[0]
             curr_node = self.op_tree
-            while curr_node != None:
+            while curr_node is not None:
                 if left_column in curr_node.colnames and \
                         right_column in curr_node.colnames:
                     break
@@ -379,8 +381,6 @@ class SnowflakeDataframe:
             "min": "min",
             "max": "max"
         }
-        print("By: ", by)
-        print("OP: ", list(op.values()))
         diff = list(set(self.columns) - set(by.columns))
 
         new_frame = self._frame.groupby_agg(grouping_cols=by.columns,
@@ -461,7 +461,7 @@ class SnowflakeDataframe:
         for key in columns.keys():
             for df_col in self.columns:
                 if key in df_col:
-                    command_dict[df_col] = str(columns[key])
+                    command_dict[df_col] = '"' + columns[key] + '"'
         new_frame = self._frame.rename(rename_dict=command_dict)
         return SnowflakeDataframe(sf_table=new_frame,
                                   sf_session=self._sf_session,
@@ -476,12 +476,29 @@ class SnowflakeDataframe:
 
 
     @track
-    def setitem(self, axis, key, value):
-        print("Axis type: ", type(axis))
-        print("Key tpye: ", type(key), " , Key: ", key)
-        print("Value type: ", type(value._modin_frame._partitions), " , ")
+    def setitem(self, loc, column, value):
+        print("LOC: ", type(loc), " ", loc)
+        print("COlumn: ", type(column), column)
+        print("Value", type(value), value)
+        new_cols = self.columns
+        if column in self.columns:
+            new_frame = self._frame.assign(
+                                         override_column=column,
+                                        op_tree= value._modin_frame.op_tree
+                                         )
+        else:
+            new_cols.append(column)
+            new_frame = self._frame.assign(new_column=column,
+                                           op_tree=value._modin_frame.op_tree
+                                           )
 
-        res = self._partitions.join(value._modin_frame._partitions)
-        print(res.to_pandas())
-
-        return self
+        return SnowflakeDataframe(sf_table=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=AssignmentNode(
+                                      colnames=new_cols,
+                                      assignment_col=column,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))

@@ -877,6 +877,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
 
     def insert(self, loc, column, value):
         if isinstance(value, type(self)):
+            from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+            if isinstance(self._modin_frame, SnowflakeDataframe):
+                return self.__constructor__(self._modin_frame.setitem(loc, column, value))
             value.columns = [column]
             return self.insert_item(axis=1, loc=loc, value=value)
 

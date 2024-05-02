@@ -148,8 +148,8 @@ class FilterNode(Node):
 class SortNode(Node):
     def __init__(self,
                  colnames: str,
-                 sort_cols= None,
-                 ascending= None,
+                 sort_cols=None,
+                 ascending=None,
                  prev=None,
                  frame=None
                  ):
@@ -157,10 +157,11 @@ class SortNode(Node):
         self.colnames = colnames
         super().__init__(prev=prev, frame=frame)
 
+
 class GroupByNode(Node):
     def __init__(self,
                  colnames: str,
-                 grouping_cols = None,
+                 grouping_cols=None,
                  aggregator=None,
                  prev=None,
                  frame=None
@@ -169,6 +170,19 @@ class GroupByNode(Node):
         self.colnames = colnames
         self.grouping_cols = grouping_cols
         self.aggregator = aggregator
+        super().__init__(prev=prev, frame=frame)
+
+
+class AssignmentNode(Node):
+    def __init__(self,
+                 colnames: str,
+                 assignment_col=None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "assignmentNode"
+        self.colnames = colnames
+        self.assignment_col = assignment_col
         super().__init__(prev=prev, frame=frame)
 
 
