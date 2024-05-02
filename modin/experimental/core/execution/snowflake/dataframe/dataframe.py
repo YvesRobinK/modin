@@ -1,21 +1,14 @@
 from typing import Optional, List, Hashable
 
 import numpy
-import pandas
-import snowflake.snowpark.types
 from functools import wraps
-
 import modin.pandas.io
-from modin.core.dataframe.pandas.dataframe.dataframe import PandasDataframe
-from modin.core.dataframe.pandas.metadata import ModinDtypes
-import copy
 
+from modin.core.dataframe.pandas.dataframe.dataframe import PandasDataframe
 from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 
-from snowflake.snowpark import table
-from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
-from snowflake.snowpark.functions import col, lit
 
+from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
 from pandas import Series
 
 from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
@@ -27,6 +20,7 @@ OPERATORS = ['*', '-', '+', '/']
 
 
 def track(func):
+
     @wraps(func)
     def with_logging(*args, **kwargs):
         print(func.__name__ + " was called")
@@ -54,20 +48,71 @@ NON_NUMERIC_DTYPES = [numpy.dtype('O')]
 
 
 class SnowflakeDataframe:
+    """
+        Lazy dataframe based on Snowflake dataframe
+
+        While operations are eagerly performed on the Snowflake dataframe, the
+        implementation makes sure the data is only computed once a function invokes
+        the transformation into a local Pandas dataframe. At this point the normal
+        operation on the now ModinDataFrame can be performed.
+
+        Parameters
+        ----------
+        partitions : np.ndarray, optional
+            Partitions of the frame.
+        frame: modin.experimental.core.execution.snowflake.dataframe.Frame.Frame
+            Represents the table held by the dataframe
+        op_tree: modin.experimental.core.execution.snowflake.dataframe.operatorNodes
+            Representation of the operations performed on the dataframe, acts as a
+            way to reconstruct operations performed on other dataframe
+        sf_session: snowflake.snowpark.session
+            The snowflake session used by this dataframe
+        key_columne: str
+            Could eventually be used as a mechanism to join frames where all join fields
+            habe been lost
+        join_index: str
+            The columne used for joins on this table
+
+        Attributes
+        ----------
+        key_columne : str
+            Not currently used
+        shape_hint : str
+            Not currently used
+        columns : [str]
+            The column names of this dataframe
+        _sf_session : snowflake.snowpark.session
+            The snowflake session used by this dataframe
+        _sf_types: [snowflake.snowpark.types]
+            List of the snowpark types in the dataframe
+        schema: snowflake.snowpark.dataframe.schema
+            Schema of the snowpark datafrane
+        _join_index: str
+            Name of the column used for joins
+        index: [str]
+            Columne names
+        op_tree: modin.experimental.core.execution.snowflake.dataframe.operatorNodes
+            Represent the operations performed on this dataframe, is used to reconstruct
+            execution when this dataframe is used as a parameter in a function that operater
+            on another dataframe.
+        dtype: [numpy.dtypes]
+            Numpy dtype equivalent of snowflake types
+
+        """
     _query_compiler_cls = DFAlgQueryCompiler
 
     def __init__(
             self,
-            sf_table=None,
+            frame=None,
             op_tree=None,
             sf_session=None,
             key_column=None,
             join_index=None
     ):
-        if isinstance(sf_table, Frame):
-            self._frame = sf_table
+        if isinstance(frame, Frame):
+            self._frame = frame
         else:
-            self._frame = Frame(sf_table)
+            self._frame = Frame(frame)
         self.key_column = key_column
         self._shape_hint = "row"
         self.columns = self._frame._frame.columns
@@ -76,15 +121,12 @@ class SnowflakeDataframe:
         self.schema = self._frame._frame.schema
         self._join_index = join_index
         self.index = self.columns
-
         if op_tree is None:
-
             self.op_tree = ConstructionNode(colnames=self.columns)
         else:
             self.op_tree = op_tree
         for col in self.schema:
             self._sf_types.append(col.datatype)
-
         dtypes = [_map_to_dtypes(x) for x in self._sf_types]
         self.dtypes = Series([x for x in dtypes if x not in NON_NUMERIC_DTYPES])
 
@@ -93,7 +135,17 @@ class SnowflakeDataframe:
             self,
             agg: str
     ):
-
+        """
+        Perform specified aggregation along columns.
+        Parameters
+        ----------
+        agg : str
+            Name of the aggregation function to perform.
+        Returns
+        -------
+        SnowflakeDataframe
+            New frame containing the result of aggregation.
+        """
         schema = self._frame._frame.schema
         command_dict = {}
         for col in schema:
@@ -102,7 +154,7 @@ class SnowflakeDataframe:
         new_frame = self._frame.agg(
             agg_dict=command_dict
         )
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -116,6 +168,13 @@ class SnowflakeDataframe:
     def _has_unsupported_data(
             self
     ):
+        """
+        Dummy to skip operation in upper layers
+
+        Returns
+        -------
+        Bool
+        """
         return False
 
     @track
@@ -125,7 +184,7 @@ class SnowflakeDataframe:
 
         Returns
         -------
-        PandasDataframe
+        SnowflakeDataframe
         """
         return type(self)
 
@@ -133,8 +192,15 @@ class SnowflakeDataframe:
     def set_index(self,
                   index: None
                   ):
+        """
+        Sets self._join_index
+
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         return SnowflakeDataframe(
-            sf_table=self._frame,
+            frame=self._frame,
             sf_session=self._sf_session,
             op_tree=SetIndexNode(
                 index=index,
@@ -150,17 +216,25 @@ class SnowflakeDataframe:
     def take_2d_labels_or_positional(
             self,
             key=None,
-            row_labels: Optional[List[Hashable]] = None,
-            row_positions: Optional[List[int]] = None,
-            col_labels: Optional[List[Hashable]] = None,
-            col_positions: Optional[List[int]] = None
+            row_labels= None,
+            row_positions = None,
+            col_labels = None,
+            col_positions = None
     ):
+        """
+        Performs filter and selection depending on what kind of class the
+        parameters are
+
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         if not (col_labels is None):
             #col_labels is a list of strings representing the columne names for a simple selection
             new_frame = self._frame.col_selection(
                 col_labels=col_labels
             )
-            return SnowflakeDataframe(sf_table=new_frame,
+            return SnowflakeDataframe(frame=new_frame,
                                       sf_session=self._sf_session,
                                       key_column=self.key_column,
                                       join_index=self._join_index,
@@ -170,13 +244,12 @@ class SnowflakeDataframe:
                                           frame=new_frame
                                       ))
 
-            return SnowflakeDataframe(sf_table=new_frame, sf_base=self._base_partition, virtual_frame=new_virt_frame)
 
         if not (row_positions is None):
             if isinstance(row_positions, modin.pandas.series.Series) and \
                     isinstance(row_positions._query_compiler._modin_frame.op_tree, ComparisonNode):
                 new_frame = self._frame.filter(row_positions._query_compiler._modin_frame.op_tree)
-                return SnowflakeDataframe(sf_table=new_frame,
+                return SnowflakeDataframe(frame=new_frame,
                                           sf_session=self._sf_session,
                                           key_column=self.key_column,
                                           join_index=self._join_index,
@@ -188,7 +261,7 @@ class SnowflakeDataframe:
             if isinstance(row_positions, modin.pandas.series.Series) and \
                     isinstance(row_positions._query_compiler._modin_frame.op_tree, LogicalNode):
                 new_frame = self._frame.filter(row_positions._query_compiler._modin_frame.op_tree)
-                return SnowflakeDataframe(sf_table=new_frame,
+                return SnowflakeDataframe(frame=new_frame,
                                           sf_session=self._sf_session,
                                           key_column=self.key_column,
                                           join_index=self._join_index,
@@ -205,6 +278,13 @@ class SnowflakeDataframe:
     def to_pandas(
             self
     ):
+        """
+        Materializes the lazy snowflake dataframe as a local modin dataframe
+
+        Returns
+        -------
+        ModinDataframe
+        """
         from modin.pandas.dataframe import DataFrame
         return modin.pandas.io.from_pandas(self._frame._frame.to_pandas())
 
@@ -212,7 +292,14 @@ class SnowflakeDataframe:
     def copy(
             self
     ):
-        return SnowflakeDataframe(sf_table=self._frame,
+        """
+        Makes a copy of the SnowflakeDataframe
+
+        Returns
+        -------
+        SnowflakeDataframe
+        """
+        return SnowflakeDataframe(frame=self._frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -225,6 +312,13 @@ class SnowflakeDataframe:
             op_name,
             **kwargs
     ):
+        """
+        Performs binary operations and comparisons on the dataframe
+
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         comp_dict = {
             "le": "<=",
             "ge": ">=",
@@ -246,7 +340,7 @@ class SnowflakeDataframe:
                 operator=comp_dict[op_name],
                 other=other
             )
-            return SnowflakeDataframe(sf_table=new_frame,
+            return SnowflakeDataframe(frame=new_frame,
                                       sf_session=self._sf_session,
                                       key_column=self.key_column,
                                       join_index=self._join_index,
@@ -276,7 +370,7 @@ class SnowflakeDataframe:
                 operator=operator_dict[op_name],
                 frame=curr_node.frame._frame
             )
-            return SnowflakeDataframe(sf_table=new_frame,
+            return SnowflakeDataframe(frame=new_frame,
                                       sf_session=self._sf_session,
                                       key_column=self.key_column,
                                       join_index=self._join_index,
@@ -293,32 +387,32 @@ class SnowflakeDataframe:
     def has_multiindex(
             self
     ):
-        return True if len(self.columns) > 1 else False
+        """
+       Sets self._join_index
 
-    @track
-    def _expr_build(
-            self,
-            columns,
-            op,
-            other
-    ):
-        if op == "lt":
-            res = []
-            for item in columns:
-                res.append("'" + item + " < " + str(other) + "'")
-            return res
-        return None
+       Returns
+       -------
+       SnowflakeDataframe
+       """
+        return True if len(self.columns) > 1 else False
 
     @track
     def _set_columns(
             self,
             new_columns
     ):
+        """
+       Renames the dataframe columns
+
+       Returns
+       -------
+       SnowflakeDataframe
+       """
         rename_dict = {}
         for index in range(len(self.columns)):
             rename_dict[self.columns[index]] = new_columns[index]
         new_frame = self._frame.rename(rename_dict=rename_dict)
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -335,6 +429,14 @@ class SnowflakeDataframe:
             other,
             on
     ):
+        """
+       Joins two dataframes, parameter (on) is not used, due to changes in upper layer
+       we defer here instead of using concat
+
+       Returns
+       -------
+       SnowflakeDataframe
+       """
         new_frame = None
         new_frame = self._frame.join(
             other_frame=other._query_compiler._modin_frame._frame._frame,
@@ -350,7 +452,7 @@ class SnowflakeDataframe:
         except:
             ReferenceError("Index needs to be set for join")
 
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -364,6 +466,12 @@ class SnowflakeDataframe:
 
     @track
     def get_index_names(self):
+        """
+        Dummy function to skip mechanism in upper layer
+        Returns
+        -------
+        [str]
+        """
         return ["just_a_dummy_in_order_to_skip_mechanism_in_upper_layers"]
 
     @track
@@ -375,6 +483,13 @@ class SnowflakeDataframe:
             groupby_args,
             **kwargs
     ):
+        """
+        Performs the combined function of group_by().agg(), since upper layer
+        combines the execution into a single call
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         comp_dict = {
             "sum": "sum",
             "mean": "mean",
@@ -387,7 +502,7 @@ class SnowflakeDataframe:
                                             aggregator=comp_dict[list(op.values())[0]],
                                             agg_col=diff
                                             )
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -408,11 +523,17 @@ class SnowflakeDataframe:
             na_position
 
     ):
+        """
+        Sorts the rows of the dataframe according to the parameters given
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         new_frame = self._frame.sort(dataframe=self,
                                      columns=columns,
                                      ascending=ascending
                                      )
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -428,6 +549,12 @@ class SnowflakeDataframe:
     def _execute(
             self
     ):
+        """
+        Dummy function to skip mechanism in upper layer
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         return self
 
     @track
@@ -435,13 +562,19 @@ class SnowflakeDataframe:
                  other,
                  logic_operator: str = None
                  ):
+        """
+        Performs logical operations between two frames that have been used for comparison
+        Returns
+        -------
+        SnowflakeDataframe
+        """
 
         self_last_comp = self.op_tree.prev
         other_last_comp = other._modin_frame.op_tree.prev
         new_frame = self._frame.logical_expression(left_comp=self_last_comp,
                                                    right_comp=other_last_comp,
                                                    logical_operator=logic_operator)
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -457,13 +590,19 @@ class SnowflakeDataframe:
             self,
             columns: {str: str} = None
     ):
+        """
+        Renames the dataframes columns according to the dict given
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         command_dict = {}
         for key in columns.keys():
             for df_col in self.columns:
                 if key in df_col:
                     command_dict[df_col] = '"' + columns[key] + '"'
         new_frame = self._frame.rename(rename_dict=command_dict)
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
@@ -476,10 +615,25 @@ class SnowflakeDataframe:
 
 
     @track
-    def setitem(self, loc, column, value):
-        print("LOC: ", type(loc), " ", loc)
-        print("COlumn: ", type(column), column)
-        print("Value", type(value), value)
+    def setitem(self,
+                loc,
+                column,
+                value
+                ):
+        """
+        Simulates assignment to a column by replaying the operation performed on
+        the SnowflakeDataframe given, operations stored in value._modin_frame.op_tree
+        need to be applied to the corresponding columne in base frame
+
+        TODO: so far only basic assignments can be done, namely operations between to columns
+        TODO: of the form x["PROFIT"] = x["LO_REVENUE"] * x["LO_DISCOUNT"]
+        TODO: Other operations could be caught here and handled the same was by passing to the
+        TODO: self._frame.assign() function and handling a specific operatorNode there
+
+        Returns
+        -------
+        SnowflakeDataframe
+        """
         new_cols = self.columns
         if column in self.columns:
             new_frame = self._frame.assign(
@@ -492,7 +646,7 @@ class SnowflakeDataframe:
                                            op_tree=value._modin_frame.op_tree
                                            )
 
-        return SnowflakeDataframe(sf_table=new_frame,
+        return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,

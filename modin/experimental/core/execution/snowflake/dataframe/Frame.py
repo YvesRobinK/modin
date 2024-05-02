@@ -54,7 +54,6 @@ class Frame:
                operator: str = None,
                frame=None
                ):
-        print("Operator, ", operator)
         new_frame = frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
@@ -85,12 +84,9 @@ class Frame:
                ):
         left_col = op_tree.prev.prev.colnames[0]
         right_col = op_tree.other.prev.colnames[0]
-
         operator = op_tree.operator
         new_frame = self._frame.with_column("TEMP", (self._frame[left_col] - self._frame[right_col]))
-
         rename_dict = {'TEMP': '"' + new_column + '"'}
-
         if override_column is not None:
             new_frame = new_frame.drop(override_column)
             new_frame = new_frame.rename(rename_dict)
@@ -110,17 +106,6 @@ class Frame:
         elif isinstance(comp_Node, LogicalNode):
             left_comp = comp_Node.prev
             right_comp = comp_Node.right_comp
-            """
-            new_frame = self._frame.filter(f'"{left_comp.comp_column}" '
-                                           f"{left_comp.operator} "
-                                           f"'{left_comp.value}' "
-                                           f" {comp_Node.logical_operator} "
-                                           f'"{right_comp.comp_column}" '
-                                           f"{right_comp.operator} "
-                                           f"'{right_comp.value}'")
-            """
-            print("Left comp, ",left_comp.operator )
-            print("Right node, ", right_comp.operator)
             operator_dict={
                 "<=": "<=",
                 ">=": ">=",
