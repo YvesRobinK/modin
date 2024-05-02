@@ -11,7 +11,7 @@ from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
 from pandas import Series
 
-from modin.experimental.core.execution.snowflake.dataframe.Frame import Frame
+from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode
@@ -60,7 +60,7 @@ class SnowflakeDataframe:
         ----------
         partitions : np.ndarray, optional
             Partitions of the frame.
-        frame: modin.experimental.core.execution.snowflake.dataframe.Frame.Frame
+        frame: modin.experimental.core.execution.snowflake.dataframe.frame.Frame
             Represents the table held by the dataframe
         op_tree: modin.experimental.core.execution.snowflake.dataframe.operatorNodes
             Representation of the operations performed on the dataframe, acts as a
