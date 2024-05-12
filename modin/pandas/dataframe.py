@@ -1762,6 +1762,10 @@ class DataFrame(BasePandasDataset):
         """
         Replace values given in `to_replace` with `value`.
         """
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            new_qc = self._query_compiler.replace(to_replace)
+            return self._create_or_update_from_compiler(new_qc, inplace)
         inplace = validate_bool_kwarg(inplace, "inplace")
         new_query_compiler = self._query_compiler.replace(
             to_replace=to_replace,

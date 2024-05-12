@@ -656,3 +656,16 @@ class SnowflakeDataframe:
                                       prev=self.op_tree,
                                       frame=new_frame
                                   ))
+
+
+    def drop(self,
+             index = None,
+             columns = None,
+             errors = None
+             ):
+        assert len(columns) <= 1 , "Only a signle columne can be dropped per call"
+        new_columns = []
+        for item in self.columns:
+            if item != columns[0].upper():
+                new_columns.append(item)
+        return self.take_2d_labels_or_positional(col_labels=new_columns)

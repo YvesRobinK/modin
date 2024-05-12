@@ -512,6 +512,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
                   index
                   ):
         return self._modin_frame.set_index(index)
+
     def _get_index(self):
         """
         Return frame's index.
@@ -626,19 +627,20 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
                 + "raise an error on invalid columns."
             )
 
-        columns = self.columns.drop(columns)
-        new_frame = self._modin_frame.take_2d_labels_or_positional(
-            row_labels=index, col_labels=columns
+        #columns = self.columns.drop(columns)
+        new_frame = self._modin_frame.drop(
+            index=index, columns=columns
         )
 
         # If all columns are dropped and the index is trivial, we are
         # not able to restore it, since we don't know the number of rows.
         # In this case, we copy the index from the current frame.
+        """
         if len(columns) == 0 and new_frame._index_cols is None:
             assert index is None, "Can't copy old indexes as there was a row drop"
             new_frame.set_index_cache(self._modin_frame.index.copy())
-
-        return self.__constructor__(new_frame)
+        """
+        return self.__constructor__(new_frame, shape_hint="row")
 
     def dropna(self, axis=0, how=no_default, thresh=no_default, subset=None):
         if thresh is not no_default or axis != 0:
