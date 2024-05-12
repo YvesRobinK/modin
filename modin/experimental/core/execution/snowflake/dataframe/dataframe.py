@@ -122,7 +122,7 @@ class SnowflakeDataframe:
         self._join_index = join_index
         self.index = self.columns
         if op_tree is None:
-            self.op_tree = ConstructionNode(colnames=self.columns)
+            self.op_tree = ConstructionNode(colnames=self.columns, frame=frame)
         else:
             self.op_tree = op_tree
         for col in self.schema:
@@ -360,15 +360,22 @@ class SnowflakeDataframe:
             right_column = other.op_tree.prev.colnames[0]
             curr_node = self.op_tree
             while curr_node is not None:
+                print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")
+                print("Curr_node", curr_node.colnames)
+                print("Curr_node", type(curr_node))
+                print("Left_column", left_column)
+                print("Right_column", right_column)
                 if left_column in curr_node.colnames and \
                         right_column in curr_node.colnames:
+                    print("We break")
                     break
                 curr_node = curr_node.prev
+            print("Curr_node", type(curr_node))
             new_frame = self._frame.bin_op(
                 left_column=left_column,
                 right_column=right_column,
                 operator=operator_dict[op_name],
-                frame=curr_node.frame._frame
+                frame=curr_node.frame
             )
             return SnowflakeDataframe(frame=new_frame,
                                       sf_session=self._sf_session,
