@@ -316,7 +316,21 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
 
     def get_positions_from_labels(self, row_loc, col_loc):
-        pass
+        return (row_loc, col_loc)
+
+    def write_items(
+        self, row_numeric_index, col_numeric_index, item, need_columns_reindex=True
+    ):
+        print(type(row_numeric_index))
+        print(col_numeric_index)
+        print(item)
+        print(need_columns_reindex)
+        return self.__constructor__(self._modin_frame.write_items(
+            row_numeric_index,
+            col_numeric_index,
+            item,
+            need_columns_reindex=True
+        ))
 
     def getitem_row_array(self, key):
         return self

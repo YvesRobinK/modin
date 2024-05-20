@@ -267,3 +267,17 @@ class RowAggregationNode(Node):
         self.colnames = frame._frame.columns
         super().__init__(prev=prev, frame=frame)
 
+class WriteItemsNode(Node):
+    def __init__(self,
+                 row_numeric_index=None,
+                 col_numeric_index=None,
+                 item=None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.row_numeric_index = row_numeric_index
+        self.col_numeric_index = col_numeric_index
+        self.item = item
+        self.colnames = frame._frame.columns
+        super().__init__(prev=prev, frame=frame)
+

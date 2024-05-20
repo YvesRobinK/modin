@@ -15,7 +15,7 @@ from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode
+    RowAggregationNode, WriteItemsNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -761,6 +761,31 @@ class SnowflakeDataframe:
                                   key_column=self.key_column,
                                   join_index=self._join_index,
                                   op_tree=SplitAssignNode(
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
+
+    def write_items(self,
+                    row_numeric_index,
+                    col_numeric_index,
+                    item,
+                    need_columns_reindex=False):
+
+        new_frame = self._frame.write_items(
+            row_numeric_index=row_numeric_index,
+            col_numeric_index=col_numeric_index,
+            item= item
+        )
+
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=WriteItemsNode(
+                                      row_numeric_index=row_numeric_index,
+                                      col_numeric_index=col_numeric_index,
+                                      item=item,
                                       prev=self.op_tree,
                                       frame=new_frame
                                   ))

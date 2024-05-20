@@ -781,6 +781,20 @@ class _LocIndexer(_LocationIndexerBase):
         --------
         pandas.DataFrame.loc
         """
+
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self.qc._modin_frame, SnowflakeDataframe):
+            row_loc, col_loc, ndims = self._parse_row_and_column_locators(key)
+            self._set_item_existing_loc(row_loc, col_loc, item)
+            return
+            if isinstance(key, list):
+                print("Key", key)
+                key = [k.upper() for k in key]
+            else:
+                print("Key", key)
+                key = key.upper()
+
+
         if self.df.empty:
 
             def _loc(df):

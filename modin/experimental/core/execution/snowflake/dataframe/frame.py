@@ -1,5 +1,5 @@
 from snowflake.snowpark import Table
-from snowflake.snowpark.functions import col, split, lit, expr
+from snowflake.snowpark.functions import col, split, lit, expr, when
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, RowAggregationNode
@@ -247,5 +247,20 @@ class Frame:
             expr_string += f"{column} {agg_dict[agg]}"
         expr_string = expr_string[:-1]
         new_frame = self._frame.select_expr(expr_string)
+        return Frame(new_frame)
+
+    def write_items(self,
+                    row_numeric_index=None,
+                    col_numeric_index=None,
+                    item=None):
+        if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, ComparisonNode):
+            comp_op = row_numeric_index._query_compiler._modin_frame.op_tree
+            age_limit = comp_op.value
+            columns = self._frame.columns
+            if comp_op.operator == "<":
+                new_frame = self._frame.select(col("*"), when(col("Age") < age_limit, 0).otherwise(col(f"{col_numeric_index}")).alias(f"{col_numeric_index}_temp"))
+                new_frame = new_frame.drop(f"{col_numeric_index}")
+                new_frame = new_frame.rename(col(f"{col_numeric_index}_temp"), f"{col_numeric_index}")
+                new_frame = new_frame.select(columns)
         return Frame(new_frame)
 
