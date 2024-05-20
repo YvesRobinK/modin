@@ -151,7 +151,7 @@ def bind_wrappers(cls):
 @bind_wrappers
 @_inherit_docstrings(BaseQueryCompiler)
 class DFAlgQueryCompiler(BaseQueryCompiler):
-    """
+    """DFAlgQueryCompiler
     Query compiler for the HDK storage format.
 
     This class doesn't perform much processing and mostly forwards calls to
