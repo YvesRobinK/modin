@@ -1,8 +1,8 @@
 from snowflake.snowpark import Table
-from snowflake.snowpark.functions import col
+from snowflake.snowpark.functions import col, split, lit, expr
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode
+    LogicalNode, RowAggregationNode
 
 from snowflake.snowpark.types import StringType
 
@@ -54,7 +54,7 @@ class Frame:
                operator: str = None,
                frame=None
                ):
-        new_frame = frame.select_expr(f"{left_column} {operator} {right_column}")
+        new_frame = frame._frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
     def agg(self,
@@ -82,10 +82,36 @@ class Frame:
                new_column=None,
                op_tree=None
                ):
+        if isinstance(op_tree, RowAggregationNode):
+            agg_dict = {
+                "sum": "+",
+            }
+            if override_column is not None:
+                column = override_column
+            else:
+                column = new_column
+
+            command_string  = f"self._frame.with_column(column, ("
+            for colname in op_tree.aggregated_cols:
+                print(colname)
+                command_string += f"self._frame['{colname}'] {agg_dict[op_tree.agg]}"
+            command_string = command_string[:-1] + "))"
+            print(command_string)
+            new_frame = eval(command_string)
+            return Frame(new_frame)
+
+
         left_col = op_tree.prev.prev.colnames[0]
         right_col = op_tree.other.prev.colnames[0]
         operator = op_tree.operator
-        new_frame = self._frame.with_column("TEMP", (self._frame[left_col] - self._frame[right_col]))
+        if operator == "-":
+            new_frame = self._frame.with_column("TEMP", (self._frame[left_col] - self._frame[right_col]))
+        elif operator == "+":
+            new_frame = self._frame.with_column("TEMP", (self._frame[left_col] + self._frame[right_col]))
+        elif operator == "*":
+            new_frame = self._frame.with_column("TEMP", (self._frame[left_col] * self._frame[right_col]))
+        elif operator == "/":
+            new_frame = self._frame.with_column("TEMP", (self._frame[left_col] / self._frame[right_col]))
         rename_dict = {'TEMP': '"' + new_column + '"'}
         if override_column is not None:
             new_frame = new_frame.drop(override_column)
@@ -156,11 +182,70 @@ class Frame:
                     ascending = ascending[1:]
         command_string = command_string[:-1] + ')'
         new_frame = eval(command_string)
-        return new_frame
+        return Frame(new_frame)
 
     def rename(self,
                rename_dict=None
                ):
-        print("rename_dict", rename_dict)
         new_frame = self._frame.rename(rename_dict)
         return Frame(new_frame)
+
+    def replace(self,
+                to_replace= None,
+                value = None,
+                column= None,
+                op_before_selection= None):
+        print("Columne: ", column)
+        new_frame = op_before_selection.frame._frame.na.replace({to_replace: value}, col(column))
+        return Frame(new_frame)
+
+    def split(self,
+              pat=None,
+              n=None,
+              expand=None,
+              regex=None,
+              column=None):
+
+        return self
+
+
+
+    def assign_split(self,
+                     other):
+        expr_list = []
+        print("Other type: ", type(other._modin_frame.op_tree.prev))
+        sep = other._modin_frame.op_tree.prev.pat
+        #sep = ","
+        column = other._modin_frame.op_tree.prev.column
+        count = 1
+
+        for item in other._modin_frame.op_tree.prev.key:
+            expr_list.append(f"expr(\"SPLIT_PART({column}, \'{sep}\', {count})\").alias(\"{item}\")")
+            count += 1
+
+        command_string = f"self._frame.select("
+        for coler in self._frame.columns:
+            print("Col", coler)
+            command_string += f"col(\"{coler}\"),"
+        for i in expr_list:
+            command_string += i + ","
+        command_string = command_string[:-1] + ")"
+        print(command_string)
+        new_frame = eval(command_string)
+        return Frame(new_frame)
+
+    def agg_row(self,
+                agg=None,
+                columns=None,
+                ):
+        agg_dict = {
+            "sum": "+",
+        }
+        print("Agg: ", agg)
+        expr_string = f""
+        for column in columns:
+            expr_string += f"{column} {agg_dict[agg]}"
+        expr_string = expr_string[:-1]
+        new_frame = self._frame.select_expr(expr_string)
+        return Frame(new_frame)
+

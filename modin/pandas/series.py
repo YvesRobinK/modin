@@ -1731,6 +1731,10 @@ class Series(BasePandasDataset):
             regex=regex,
             method=method,
         )
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        from modin.pandas.dataframe import DataFrame
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            return DataFrame(query_compiler=new_query_compiler)
         return self._create_or_update_from_compiler(new_query_compiler, inplace)
 
     def searchsorted(self, value, side="left", sorter=None):  # noqa: PR01, RT01, D200

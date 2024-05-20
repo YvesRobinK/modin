@@ -210,3 +210,60 @@ class VirtualFrame:
                      ):
         new_node_list = [node_class(node.colname, node) for node in self.node_list]
         return self.__class__(new_node_list)
+
+class ReplacementNode(Node):
+    def __init__(self,
+                 colnames: str = None,
+                 rep_column: str = None,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "replacementNode"
+        self.colnames = colnames
+        self.rep_column = rep_column
+        super().__init__(prev=prev, frame=frame)
+
+class SplitNode(Node):
+    def __init__(self,
+                 colnames: str = None,
+                 pat = None,
+                 expand = None,
+                 regex = None,
+                 column= None,
+                 prev= None,
+                 frame= None
+                 ):
+        self.name = "splitNode"
+        self.colnames = colnames
+        self.pat = pat
+        self.expand = expand
+        self.regex = regex
+        self.column = column
+        self.key = None
+        super().__init__(prev=prev, frame=frame)
+
+class SplitAssignNode(Node):
+    def __init__(self,
+                 colnames: str = None,
+                 pat = None,
+                 expand = None,
+                 regex = None,
+                 column= None,
+                 prev= None,
+                 frame= None
+                 ):
+        self.colnames = frame._frame.columns
+        super().__init__(prev=prev, frame=frame)
+
+class RowAggregationNode(Node):
+    def __init__(self,
+                 aggregated_cols=None,
+                 agg=None,
+                 prev= None,
+                 frame= None
+                 ):
+        self.aggregated_cols=aggregated_cols
+        self.agg = agg
+        self.colnames = frame._frame.columns
+        super().__init__(prev=prev, frame=frame)
+

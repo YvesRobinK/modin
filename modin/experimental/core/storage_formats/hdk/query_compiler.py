@@ -332,6 +332,18 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             )
         )
 
+    def replace(self,
+                to_replace= None,
+                value =None,
+                inplace = None,
+                limit = None,
+                regex = None,
+                method = None):
+        print("To_replace: ", to_replace)
+        print("value", value)
+
+        return self.__constructor__(self._modin_frame.replace(to_replace=to_replace, value=value))
+
 
     def groupby_size(
         self,
@@ -481,7 +493,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
             New single-column (``axis=1``) or single-row (``axis=0``) query compiler containing
             the result of aggregation.
         """
-        if level is not None or axis != 0:
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if level is not None or axis != 0 and not isinstance(self._modin_frame, SnowflakeDataframe):
             raise NotImplementedError(
                 "HDK's aggregation functions does not support 'level' and 'axis' parameters."
             )
@@ -496,7 +509,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         kwargs.pop("numeric_only", None)
 
 
-        new_frame = self._modin_frame.agg(agg)
+        new_frame = self._modin_frame.agg(agg, axis=axis)
         from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
         if isinstance(new_frame, SnowflakeDataframe):
             return self.__constructor__(new_frame, shape_hint="row")
@@ -512,6 +525,15 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
                   index
                   ):
         return self._modin_frame.set_index(index)
+    def str_split(self,
+                  pat=None,
+                  n=None,
+                  expand=None,
+                  regex=None):
+        return self.__constructor__(self._modin_frame.split(pat=pat,
+                                                            n=n,
+                                                            expand=expand,
+                                                            regex=regex))
 
     def _get_index(self):
         """
@@ -598,6 +620,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         return self.__constructor__(new_frame, self._shape_hint)
 
     def concat(self, axis, other, **kwargs):
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            return self.__constructor__(self._modin_frame.mult_assign( axis, other))
         if not isinstance(other, list):
             other = [other]
         assert all(
@@ -611,7 +636,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         join = kwargs.get("join", "outer")
         ignore_index = kwargs.get("ignore_index", False)
         other_modin_frames = [o._modin_frame for o in other]
-
         new_modin_frame = self._modin_frame.concat(
             axis, other_modin_frames, join=join, sort=sort, ignore_index=ignore_index
         )

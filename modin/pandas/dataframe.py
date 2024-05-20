@@ -2459,6 +2459,7 @@ class DataFrame(BasePandasDataset):
         return self._create_or_update_from_compiler(query_compiler, inplace)
 
     def _getitem_column(self, key):
+
         """
         Get column specified by `key`.
 
@@ -2472,6 +2473,9 @@ class DataFrame(BasePandasDataset):
         Series
             Selected column.
         """
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+        if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
+            key = key.upper()
         if key not in self.keys():
             raise KeyError("{}".format(key))
         s = self.__constructor__(
@@ -2641,9 +2645,16 @@ class DataFrame(BasePandasDataset):
                 # Mixed case is more complicated, it's defaulting to pandas for now
                 and all((x not in self.columns for x in key))
             ):
+                "Removed because of snowflake split"
+                """
                 if len(key) != len(value.columns):
                     raise ValueError("Columns must be same length as key")
-
+                """
+                from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import SplitNode
+                from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
+                if isinstance(value._query_compiler._modin_frame, SnowflakeDataframe):
+                    if isinstance(value._query_compiler._modin_frame.op_tree, SplitNode):
+                        value._query_compiler._modin_frame.op_tree.key = key
                 # Aligning the value's columns with the key
                 if not np.array_equal(value.columns, key):
                     value = value.set_axis(key, axis=1)

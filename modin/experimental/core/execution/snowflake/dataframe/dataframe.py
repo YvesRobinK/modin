@@ -14,7 +14,8 @@ from pandas import Series
 from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode
+    LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
+    RowAggregationNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -115,7 +116,7 @@ class SnowflakeDataframe:
             self._frame = Frame(frame)
         self.key_column = key_column
         self._shape_hint = "row"
-        self.columns = self._frame._frame.columns
+        self.columns = [col.upper() for col in self._frame._frame.columns]
         self._sf_session = sf_session
         self._sf_types = []
         self.schema = self._frame._frame.schema
@@ -128,12 +129,15 @@ class SnowflakeDataframe:
         for col in self.schema:
             self._sf_types.append(col.datatype)
         dtypes = [_map_to_dtypes(x) for x in self._sf_types]
-        self.dtypes = Series([x for x in dtypes if x not in NON_NUMERIC_DTYPES])
+        self.dtype = dtypes[0]
+        self.dtypes = Series([x for x in dtypes])
+
 
     @track
     def agg(
             self,
-            agg: str
+            agg: str,
+            axis = None
     ):
         """
         Perform specified aggregation along columns.
@@ -146,6 +150,27 @@ class SnowflakeDataframe:
         SnowflakeDataframe
             New frame containing the result of aggregation.
         """
+        if axis == 1:
+            schema = self._frame._frame.schema
+            columns = self.columns
+            print("Here columns", columns)
+            new_frame = self._frame.agg_row(
+                agg=agg,
+                columns=columns
+            )
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=RowAggregationNode(
+                                      aggregated_cols= columns,
+                                      agg=agg,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
+
+
         schema = self._frame._frame.schema
         command_dict = {}
         for col in schema:
@@ -360,17 +385,10 @@ class SnowflakeDataframe:
             right_column = other.op_tree.prev.colnames[0]
             curr_node = self.op_tree
             while curr_node is not None:
-                print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")
-                print("Curr_node", curr_node.colnames)
-                print("Curr_node", type(curr_node))
-                print("Left_column", left_column)
-                print("Right_column", right_column)
                 if left_column in curr_node.colnames and \
                         right_column in curr_node.colnames:
-                    print("We break")
                     break
                 curr_node = curr_node.prev
-            print("Curr_node", type(curr_node))
             new_frame = self._frame.bin_op(
                 left_column=left_column,
                 right_column=right_column,
@@ -641,6 +659,8 @@ class SnowflakeDataframe:
         -------
         SnowflakeDataframe
         """
+
+
         new_cols = self.columns
         if column in self.columns:
             new_frame = self._frame.assign(
@@ -676,3 +696,71 @@ class SnowflakeDataframe:
             if item != columns[0].upper():
                 new_columns.append(item)
         return self.take_2d_labels_or_positional(col_labels=new_columns)
+
+
+    def replace(self,
+                to_replace,
+                value):
+        assert len(self.columns) == 1 , "Replace only possible on single column"
+        column = self.columns[0]
+        op_before_selection = self.op_tree.prev
+        new_frame = self._frame.replace(to_replace=to_replace,
+                                       value=value,
+                                       column=column,
+                                       op_before_selection=op_before_selection
+                                       )
+
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=ReplacementNode(
+                                      colnames=op_before_selection.colnames,
+                                      rep_column=column,
+                                      prev=op_before_selection,
+                                      frame=new_frame
+                                  ))
+
+    def split(self,
+              pat = None,
+              n=None,
+              expand=None,
+              regex=None):
+        column = self.columns[0]
+        new_frame = self._frame.split(pat=pat,
+                                        n=n,
+                                        expand=expand,
+                                        regex=regex,
+                                        column=column
+                                        )
+
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=SplitNode(
+                                      colnames=self.columns,
+                                      pat=pat,
+                                      expand=expand,
+                                      regex=regex,
+                                      column=column,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
+    def mult_assign(self,
+                    axis,
+                    other
+                    ):
+        #print("Other type: ", type(other[0]._.op_tree.prev))
+        print(self.columns)
+        new_frame = self._frame.assign_split(other[0])
+
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=SplitAssignNode(
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
