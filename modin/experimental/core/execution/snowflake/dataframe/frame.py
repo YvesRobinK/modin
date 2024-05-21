@@ -54,7 +54,7 @@ class Frame:
                operator: str = None,
                frame=None
                ):
-        new_frame = frame._frame.select_expr(f"{left_column} {operator} {right_column}")
+        new_frame = self._frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
     def agg(self,
@@ -256,9 +256,11 @@ class Frame:
         if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, ComparisonNode):
             comp_op = row_numeric_index._query_compiler._modin_frame.op_tree
             age_limit = comp_op.value
+            comp_columne = comp_op.comp_column
             columns = self._frame.columns
+            print("hehrehheehehhehe: ", item )
             if comp_op.operator == "<":
-                new_frame = self._frame.select(col("*"), when(col("Age") < age_limit, 0).otherwise(col(f"{col_numeric_index}")).alias(f"{col_numeric_index}_temp"))
+                new_frame = self._frame.select(col("*"), when(col(f"{comp_columne}") < age_limit, item).otherwise(col(f"{col_numeric_index}")).alias(f"{col_numeric_index}_temp"))
                 new_frame = new_frame.drop(f"{col_numeric_index}")
                 new_frame = new_frame.rename(col(f"{col_numeric_index}_temp"), f"{col_numeric_index}")
                 new_frame = new_frame.select(columns)
