@@ -256,10 +256,19 @@ class Frame:
 
         if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, ComparisonNode):
             comp_op = row_numeric_index._query_compiler._modin_frame.op_tree
-            age_limit = comp_op.value
+            comparison_value = comp_op.value
             comp_column = comp_op.comp_column
             if comp_op.operator == "<":
                 for c in col_numeric_index:
-                    self._frame = self._frame.with_column(c, when(col(comp_column) < age_limit, item).otherwise(col(c)))
-
+                    self._frame = self._frame.with_column(c, when(col(comp_column) < comparison_value, item).otherwise(col(c)))
+            if comp_op.operator == ">":
+                for c in col_numeric_index:
+                    self._frame = self._frame.with_column(c, when(col(comp_column) > comparison_value, item).otherwise(col(c)))
+            if comp_op.operator == "=":
+                self._frame = self._frame.with_column(
+                    comp_column,
+                    col(comp_column).cast('BOOLEAN')
+                )
+                for c in col_numeric_index:
+                    self._frame = self._frame.with_column(c, when(col(comp_column) == comparison_value, item).otherwise(col(c)))
         return Frame(self._frame)
