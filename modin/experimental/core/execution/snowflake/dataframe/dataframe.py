@@ -669,9 +669,14 @@ class SnowflakeDataframe:
                                          )
         else:
             new_cols.append(column)
-            new_frame = self._frame.assign(new_column=column,
-                                           op_tree=value._modin_frame.op_tree
-                                           )
+            if isinstance(value, DFAlgQueryCompiler):
+                new_frame = self._frame.assign(new_column=column,
+                                            op_tree=value._modin_frame.op_tree
+                                            )
+            else: # scalar values
+                new_frame = self._frame.assign_scalar(column=column,
+                                                      value=value
+                                                    )
 
         return SnowflakeDataframe(frame=new_frame,
                                   sf_session=self._sf_session,

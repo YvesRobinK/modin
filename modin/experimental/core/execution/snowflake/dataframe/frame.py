@@ -121,6 +121,13 @@ class Frame:
 
         return Frame(new_frame)
 
+    def assign_scalar(self,
+                      column,
+                      value=None):
+
+        new_frame = self._frame.with_column(column, lit(value))
+        return Frame(new_frame)
+
     def filter(self,
                comp_Node=None
                ):

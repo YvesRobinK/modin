@@ -916,12 +916,15 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
     _setitem = PandasQueryCompiler._setitem
 
     def insert(self, loc, column, value):
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(value, type(self)):
-            from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
             if isinstance(self._modin_frame, SnowflakeDataframe):
                 return self.__constructor__(self._modin_frame.setitem(loc, column, value))
             value.columns = [column]
             return self.insert_item(axis=1, loc=loc, value=value)
+
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            return self.__constructor__(self._modin_frame.setitem(loc, column, value))
 
         if is_list_like(value):
             raise NotImplementedError("HDK's insert does not support list-like values.")
