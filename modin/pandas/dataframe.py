@@ -1910,7 +1910,7 @@ class DataFrame(BasePandasDataset):
         indicate = [
             i for i in range(len(dtype_indexer.values)) if not dtype_indexer.values[i]
         ]
-        return self.drop(columns=self.columns[indicate], inplace=False)
+        return self.drop(columns=[self.columns[i] for i in indicate], inplace=False)
 
     def set_index(
         self, keys, *, drop=True, append=False, inplace=False, verify_integrity=False

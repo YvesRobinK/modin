@@ -1,4 +1,4 @@
-from typing import Optional, List, Hashable
+from typing import Dict, Optional, List, Hashable
 
 import numpy
 from functools import wraps
@@ -15,7 +15,7 @@ from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode, WriteItemsNode
+    RowAggregationNode, WriteItemsNode, DropNode
 
 OPERATORS = ['*', '-', '+', '/']
 
@@ -613,7 +613,7 @@ class SnowflakeDataframe:
     @track
     def rename(
             self,
-            columns: {str: str} = None
+            columns: Dict[str, str] = None
     ):
         """
         Renames the dataframes columns according to the dict given
@@ -695,12 +695,17 @@ class SnowflakeDataframe:
              columns = None,
              errors = None
              ):
-        assert len(columns) <= 1 , "Only a signle columne can be dropped per call"
-        new_columns = []
-        for item in self.columns:
-            if item != columns[0].upper():
-                new_columns.append(item)
-        return self.take_2d_labels_or_positional(col_labels=new_columns)
+        new_frame = self._frame.drop(columns)
+        return SnowflakeDataframe(frame=new_frame,
+                            sf_session=self._sf_session,
+                            key_column=self.key_column,
+                            join_index=self._join_index,
+                            op_tree=DropNode(
+                                colnames=new_frame._frame.columns,
+                                droped_columns=columns,
+                                prev=self.op_tree,
+                                frame=new_frame
+                            ))
 
 
     def replace(self,

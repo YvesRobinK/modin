@@ -1,3 +1,4 @@
+from typing import List
 from snowflake.snowpark import Table
 from snowflake.snowpark.functions import col, split, lit, expr, when
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
@@ -22,7 +23,7 @@ class Frame:
         return Frame(new_frame)
 
     def col_selection(self,
-                      col_labels: [str] = None
+                      col_labels: List[str] = None
                       ):
         new_frame = self._frame.select(col_labels)
         return Frame(new_frame)
@@ -279,3 +280,8 @@ class Frame:
                 for c in col_numeric_index:
                     self._frame = self._frame.with_column(c, when(col(comp_column) == comparison_value, item).otherwise(col(c)))
         return Frame(self._frame)
+
+    def drop(self,
+             columns):
+        new_frame = self._frame.drop(columns)
+        return Frame(new_frame)
