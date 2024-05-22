@@ -54,7 +54,7 @@ class Frame:
                operator: str = None,
                frame=None
                ):
-        new_frame = self._frame.select_expr(f"{left_column} {operator} {right_column}")
+        new_frame = frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
     def agg(self,
@@ -104,6 +104,7 @@ class Frame:
         left_col = op_tree.prev.prev.colnames[0]
         right_col = op_tree.other.prev.colnames[0]
         operator = op_tree.operator
+
         if operator == "-":
             new_frame = self._frame.with_column("TEMP", (self._frame[left_col] - self._frame[right_col]))
         elif operator == "+":

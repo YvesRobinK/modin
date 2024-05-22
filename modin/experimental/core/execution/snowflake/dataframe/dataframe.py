@@ -379,6 +379,7 @@ class SnowflakeDataframe:
                                       ))
 
         if op_name in operator_dict.keys() and isinstance(other, self.__class__):
+
             assert len(self.columns) == 1, "Series operation can only be performed on one column"
             assert len(other.columns) == 1, "Series operation can only be performed on one column"
             left_column = self.op_tree.prev.colnames[0]
