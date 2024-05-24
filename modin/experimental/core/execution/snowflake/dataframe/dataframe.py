@@ -158,16 +158,16 @@ class SnowflakeDataframe:
                 agg=agg,
                 columns=columns
             )
-        return SnowflakeDataframe(frame=new_frame,
-                                  sf_session=self._sf_session,
-                                  key_column=self.key_column,
-                                  join_index=self._join_index,
-                                  op_tree=RowAggregationNode(
-                                      aggregated_cols= columns,
-                                      agg=agg,
-                                      prev=self.op_tree,
-                                      frame=new_frame
-                                  ))
+            return SnowflakeDataframe(frame=new_frame,
+                                      sf_session=self._sf_session,
+                                      key_column=self.key_column,
+                                      join_index=self._join_index,
+                                      op_tree=RowAggregationNode(
+                                          aggregated_cols= columns,
+                                          agg=agg,
+                                          prev=self.op_tree,
+                                          frame=new_frame
+                                      ))
 
 
 

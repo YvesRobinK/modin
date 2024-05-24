@@ -866,10 +866,12 @@ class _LocIndexer(_LocationIndexerBase):
         item : modin.pandas.DataFrame, modin.pandas.Series or scalar
             Value that should be assigned to located dataset.
         """
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if (
             isinstance(row_loc, Series)
             and is_boolean_array(row_loc)
             and is_scalar(item)
+            and not isinstance(self.df._query_compiler._modin_frame, SnowflakeDataframe)
         ):
             new_qc = self.df._query_compiler.setitem_bool(
                 row_loc._query_compiler, col_loc, item
