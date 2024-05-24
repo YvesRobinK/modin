@@ -917,7 +917,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(self._modin_frame, SnowflakeDataframe):
             print("We not here")
-            return self._modin_frame.setitem(axis, key, value)
+            return self.__constructor__(self._modin_frame.setitem(axis, key, value))
+            # return self._modin_frame.setitem(axis, key, value)
         if axis == 1 or not isinstance(value, type(self)):
             raise NotImplementedError(
                 f"HDK's setitem does not support such set of parameters: axis={axis}, value={value}."

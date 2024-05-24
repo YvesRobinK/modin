@@ -121,6 +121,18 @@ class Frame:
 
         return Frame(new_frame)
 
+    def assign_singular(self,
+                        column: str,
+                        value: "Frame"):
+        """
+        Assigns value to Frame[column]
+        """
+        dataframe_columns = value._frame.columns
+        assert len(dataframe_columns) == 1, "Cannot assign a dataframe with more than 1 column to a column"
+
+        new_frame = self._frame.with_column(column, value._frame[dataframe_columns[0]])
+        return Frame(new_frame)
+
     def assign_scalar(self,
                       column,
                       value=None):

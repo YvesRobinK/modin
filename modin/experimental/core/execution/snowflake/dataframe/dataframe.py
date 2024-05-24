@@ -638,7 +638,7 @@ class SnowflakeDataframe:
                 loc,
                 column,
                 value
-                ):
+                ) -> "SnowflakeDataframe":
         """
         Simulates assignment to a column by replaying the operation performed on
         the SnowflakeDataframe given, operations stored in value._modin_frame.op_tree
@@ -657,10 +657,14 @@ class SnowflakeDataframe:
 
         new_cols = self.columns
         if column in self.columns:
-            new_frame = self._frame.assign(
-                                         override_column=column,
-                                        op_tree= value._modin_frame.op_tree
-                                         )
+            if isinstance(value, DFAlgQueryCompiler):
+                if isinstance(value._modin_frame.op_tree, BinOpNode):
+                    new_frame = self._frame.assign(
+                                                override_column=column,
+                                                op_tree= value._modin_frame.op_tree
+                                                )
+                else:
+                    new_frame = self._frame.assign_singular(column=column, value=value._modin_frame._frame)
         else:
             new_cols.append(column)
             if isinstance(value, DFAlgQueryCompiler):
