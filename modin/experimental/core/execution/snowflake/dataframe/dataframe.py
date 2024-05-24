@@ -1,23 +1,16 @@
-from typing import Dict, Optional, List, Hashable
+from typing import Dict, List
+from functools import wraps
 
 import numpy
-from functools import wraps
-import modin.pandas.io
-
-from modin.core.dataframe.pandas.dataframe.dataframe import PandasDataframe
-from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
-
-
-from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType
 from pandas import Series
-
+from snowflake.snowpark.types import LongType, StringType, DecimalType, _NumericType, DataType, BooleanType
+import modin.pandas.io
+from modin.experimental.core.storage_formats.hdk import DFAlgQueryCompiler
 from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
-    Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
+    ModeNode, ConstructionNode, SelectionNode, ComparisonNode, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode, WriteItemsNode, DropNode
-
-OPERATORS = ['*', '-', '+', '/']
+    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode
 
 
 def track(func):
@@ -33,7 +26,9 @@ def track(func):
 def _map_to_dtypes(
         sf_type
 ):
-    if isinstance(sf_type, LongType):
+    if isinstance(sf_type, BooleanType):
+        return numpy.dtype('bool')
+    elif isinstance(sf_type, LongType):
         #return numpy.uint64
         #return numpy.dtypes.Int64DType
         return numpy.dtype('int64')
@@ -116,7 +111,7 @@ class SnowflakeDataframe:
             self._frame = Frame(frame)
         self.key_column = key_column
         self._shape_hint = "row"
-        self.columns = [col.upper() for col in self._frame._frame.columns]
+        self.columns: List = [col.upper() for col in self._frame._frame.columns]
         self._sf_session = sf_session
         self._sf_types = []
         self.schema = self._frame._frame.schema
@@ -798,3 +793,15 @@ class SnowflakeDataframe:
                                       prev=self.op_tree,
                                       frame=new_frame
                                   ))
+
+    def mode(self):
+        new_frame = self._frame.mode()
+        return SnowflakeDataframe(frame=new_frame,
+                            sf_session=self._sf_session,
+                            key_column=self.key_column,
+                            join_index=self._join_index,
+                            op_tree=ModeNode(
+                                prev=self.op_tree,
+                                frame=new_frame
+                            ))
+

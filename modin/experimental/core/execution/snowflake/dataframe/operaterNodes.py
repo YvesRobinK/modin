@@ -289,3 +289,7 @@ class DropNode(Node):
         self.colnames = colnames
         self.droped_columns = droped_columns
         super().__init__(prev=prev, frame=frame)
+
+class ModeNode(Node):
+    def __init__(self, prev=None, frame=None):
+        super().__init__(prev, frame)

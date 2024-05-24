@@ -38,6 +38,7 @@ from pandas.core.dtypes.common import is_bool_dtype, is_integer, is_integer_dtyp
 from pandas.core.indexing import IndexingError
 
 from modin.error_message import ErrorMessage
+from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
 from modin.logging import ClassLogger
 
 from .dataframe import DataFrame
@@ -870,6 +871,7 @@ class _LocIndexer(_LocationIndexerBase):
             isinstance(row_loc, Series)
             and is_boolean_array(row_loc)
             and is_scalar(item)
+            and not isinstance(self.df._query_compiler._modin_frame, SnowflakeDataframe)
         ):
             new_qc = self.df._query_compiler.setitem_bool(
                 row_loc._query_compiler, col_loc, item

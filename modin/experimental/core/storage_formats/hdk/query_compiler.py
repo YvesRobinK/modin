@@ -475,6 +475,17 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         _check_int_or_float("mean", self.dtypes)
         return self._agg("mean", **kwargs)
 
+    def mode(self, axis=0, numeric_only=False, dropna=False):
+        if axis == 1:
+            raise "NOT IMPLEMENTED"
+        if numeric_only:
+            raise "NOT IMPLEMENTED"
+        # at the moment we do not dropna
+        # if dropna:
+        #     raise "NOT IMPLEMENTED"
+
+        return self.__constructor__(self._modin_frame.mode())
+
     def nunique(self, axis=0, dropna=True):
         if axis != 0 or not dropna:
             raise NotImplementedError(

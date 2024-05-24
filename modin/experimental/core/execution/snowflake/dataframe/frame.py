@@ -1,18 +1,17 @@
 from typing import List
-from snowflake.snowpark import Table
-from snowflake.snowpark.functions import col, split, lit, expr, when
-from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
-    Node, ConstructionNode, SelectionNode, ComparisonNode, VirtualFrame, JoinNode, SetIndexNode, FilterNode, RenameNode, \
-    LogicalNode, RowAggregationNode
 
-from snowflake.snowpark.types import StringType
+import numpy
+from snowflake.snowpark.functions import col, lit, when, mode
+from snowflake.snowpark.dataframe import DataFrame, Column
+from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
+    ComparisonNode, LogicalNode, RowAggregationNode
 
 
 class Frame:
     def __init__(self,
                  sf_rep
                  ):
-        self._frame = sf_rep
+        self._frame: DataFrame = sf_rep
 
     def join(self,
              other_frame=None,
@@ -284,4 +283,10 @@ class Frame:
     def drop(self,
              columns):
         new_frame = self._frame.drop(columns)
+        return Frame(new_frame)
+
+    def mode(self) -> "Frame":
+        for column in self._frame.columns:
+            mode_column = mode(self._frame[column])
+            new_frame = self._frame.with_column(column, mode_column)
         return Frame(new_frame)
