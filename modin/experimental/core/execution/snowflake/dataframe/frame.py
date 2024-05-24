@@ -302,3 +302,16 @@ class Frame:
             mode_column = mode(self._frame[column])
             new_frame = self._frame.with_column(column, mode_column)
         return Frame(new_frame)
+
+    def fillna(self,
+               value) -> "Frame":
+        # following hard coded case handling is because snowflake does not have
+        # any mapping from numpy.bool_ to BooleanType
+        # a clean fix to this issue would be adding following entry to `snowflake.snowpark._internal.type_utils.py`
+        # PYTHON_TO_SNOW_TYPE_MAPPINGS.update({
+        #   numpy.bool_: BooleanType
+        # })
+        if type(value) == numpy.bool_:
+            value = bool(value)
+        new_frame = self._frame.na.fill(value)
+        return Frame(new_frame)

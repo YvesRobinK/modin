@@ -798,6 +798,26 @@ class SnowflakeDataframe:
                                       frame=new_frame
                                   ))
 
+    def fillna(
+        self,
+        value=None,
+        method=None,
+        axis=None,
+        limit=None,
+        downcast=None,
+    ):
+        new_frame = self._frame.fillna(value=value)
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=FillnaNode(
+                                      value=value,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
+
     def mode(self):
         new_frame = self._frame.mode()
         return SnowflakeDataframe(frame=new_frame,

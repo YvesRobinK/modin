@@ -290,6 +290,11 @@ class DropNode(Node):
         self.droped_columns = droped_columns
         super().__init__(prev=prev, frame=frame)
 
+class FillnaNode(Node):
+    def __init__(self, value, prev=None, frame=None):
+        self.value = value
+        super().__init__(prev=prev, frame=frame)
+
 class ModeNode(Node):
     def __init__(self, prev=None, frame=None):
         super().__init__(prev, frame)
