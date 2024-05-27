@@ -655,22 +655,22 @@ class SnowflakeDataframe:
         SnowflakeDataframe
         """
 
-
-        if isinstance(value._modin_frame.op_tree, LazyFillNan):
-            new_frame = self._frame.lazy_assign_fillna(
-                assign_col=value._modin_frame._frame._frame.columns[0],
-                op_tree=value._modin_frame.op_tree
-            )
-            return SnowflakeDataframe(frame=new_frame,
-                                      sf_session=self._sf_session,
-                                      key_column=self.key_column,
-                                      join_index=self._join_index,
-                                      op_tree=AssignmentNode(
-                                          colnames=new_frame._frame.columns,
-                                          assignment_col=column,
-                                          prev=self.op_tree,
-                                          frame=new_frame
-                                      ))
+        if not isinstance(value, int):
+            if isinstance(value._modin_frame.op_tree, LazyFillNan):
+                new_frame = self._frame.lazy_assign_fillna(
+                    assign_col=value._modin_frame._frame._frame.columns[0],
+                    op_tree=value._modin_frame.op_tree
+                )
+                return SnowflakeDataframe(frame=new_frame,
+                                          sf_session=self._sf_session,
+                                          key_column=self.key_column,
+                                          join_index=self._join_index,
+                                          op_tree=AssignmentNode(
+                                              colnames=new_frame._frame.columns,
+                                              assignment_col=column,
+                                              prev=self.op_tree,
+                                              frame=new_frame
+                                          ))
 
         new_cols = self.columns
 
@@ -823,17 +823,19 @@ class SnowflakeDataframe:
         limit=None,
         downcast=None,
     ):
-        return SnowflakeDataframe(frame=self._frame,
-                                  sf_session=self._sf_session,
-                                  key_column=self.key_column,
-                                  join_index=self._join_index,
-                                  op_tree=LazyFillNan(
-                                      value=value,
-                                      method=method,
-                                      column=self.columns[0],
-                                      prev=self.op_tree,
-                                      frame=self._frame
-                                  ))
+        if not method is None:
+            new_frame = self._frame.lazy_assign_fillna(assign_col=value._modin_frame.columns[0], op_tree=value._modin_frame.op_tree)
+            return SnowflakeDataframe(frame=self._frame,
+                                      sf_session=self._sf_session,
+                                      key_column=self.key_column,
+                                      join_index=self._join_index,
+                                      op_tree=LazyFillNan(
+                                          value=value,
+                                          method=method,
+                                          column=self.columns[0],
+                                          prev=self.op_tree,
+                                          frame=self._frame
+                                      ))
 
         new_frame = self._frame.fillna(value=value)
         return SnowflakeDataframe(frame=new_frame,

@@ -55,7 +55,7 @@ class Frame:
                operator: str = None,
                frame=None
                ):
-        new_frame = frame.select_expr(f"{left_column} {operator} {right_column}")
+        new_frame = frame._frame.select_expr(f"{left_column} {operator} {right_column}")
         return Frame(new_frame)
 
     def agg(self,
@@ -224,7 +224,9 @@ class Frame:
                 column= None,
                 op_before_selection= None):
 
-        new_frame = op_before_selection.frame._frame.na.replace({to_replace: value}, col(column))
+        new_frame = op_before_selection.frame._frame.with_column("temp", when(col(column) == to_replace, str(0)).otherwise(col(column)))
+        new_frame = new_frame.drop(column)
+        new_frame = new_frame.rename({"temp": column})
         return Frame(new_frame)
 
     def split(self,
