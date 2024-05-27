@@ -736,8 +736,6 @@ class SnowflakeDataframe:
         while not isinstance(curr_node, ConstructionNode):
             #print("Type curr node: ", type(curr_node))
             curr_node = curr_node.prev
-        #op_before_selection = self.op_tree.prev
-        print("Op tree type: ", type(op_before_selection))
         new_frame = self._frame.replace(to_replace=to_replace,
                                        value=value,
                                        column=column,

@@ -138,11 +138,7 @@ class Frame:
         """
         dataframe_columns = value._frame.columns
         assert len(dataframe_columns) == 1, "Cannot assign a dataframe with more than 1 column to a column"
-        print("value: ", type(value))
-        print(self._frame.show())
-        print(column)
         new_frame = self._frame.with_column(column, value._frame[dataframe_columns[0]])
-        print(new_frame.show())
         return Frame(new_frame)
 
     def assign_scalar(self,
@@ -226,14 +222,9 @@ class Frame:
                 value = None,
                 column= None,
                 op_before_selection= None):
-        print("THIS HAPPENS")
-        print(op_before_selection.frame._frame.show())
         new_frame = op_before_selection.frame._frame.with_column("temp", when(col(column) == to_replace, str(value)).otherwise(col(column)))
-        print(new_frame.show())
         new_frame = new_frame.drop(column)
-        print(new_frame.show())
         new_frame = new_frame.rename({"temp": column})
-        print(new_frame.show())
         return Frame(new_frame)
 
     def split(self,
