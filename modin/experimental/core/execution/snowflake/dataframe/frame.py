@@ -138,8 +138,11 @@ class Frame:
         """
         dataframe_columns = value._frame.columns
         assert len(dataframe_columns) == 1, "Cannot assign a dataframe with more than 1 column to a column"
-
+        print("value: ", type(value))
+        print(self._frame.show())
+        print(column)
         new_frame = self._frame.with_column(column, value._frame[dataframe_columns[0]])
+        print(new_frame.show())
         return Frame(new_frame)
 
     def assign_scalar(self,
@@ -350,7 +353,8 @@ class Frame:
                                        (PARTITION BY {} ORDER BY {} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))\
                                        AS {}".format(assign_col,assign_col ,assign_col, assign_col, assign_col + "_TEMP"))
             """
-        new_frame = self._frame.drop(assign_col)
+
+        new_frame = new_frame.drop(assign_col)
         new_frame = new_frame.rename({assign_col + "_TEMP": assign_col})
         new_frame = new_frame.select(column_order)
         return Frame(new_frame)

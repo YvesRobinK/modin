@@ -655,7 +655,7 @@ class SnowflakeDataframe:
         SnowflakeDataframe
         """
 
-        if not isinstance(value, int):
+        if not isinstance(value, int) and not isinstance(value, float):
             if isinstance(value._modin_frame.op_tree, LazyFillNan):
                 new_frame = self._frame.lazy_assign_fillna(
                     assign_col=value._modin_frame._frame._frame.columns[0],
@@ -671,7 +671,6 @@ class SnowflakeDataframe:
                                               prev=self.op_tree,
                                               frame=new_frame
                                           ))
-
         new_cols = self.columns
 
         if column.upper() in self.columns:
@@ -799,7 +798,7 @@ class SnowflakeDataframe:
         new_frame = self._frame.write_items(
             row_numeric_index=row_numeric_index,
             col_numeric_index=col_numeric_index,
-            item= item
+            item=item
         )
 
         return SnowflakeDataframe(frame=new_frame,
@@ -824,7 +823,6 @@ class SnowflakeDataframe:
         downcast=None,
     ):
         if not method is None:
-            new_frame = self._frame.lazy_assign_fillna(assign_col=value._modin_frame.columns[0], op_tree=value._modin_frame.op_tree)
             return SnowflakeDataframe(frame=self._frame,
                                       sf_session=self._sf_session,
                                       key_column=self.key_column,
@@ -839,7 +837,7 @@ class SnowflakeDataframe:
 
         new_frame = self._frame.fillna(value=value)
         return SnowflakeDataframe(frame=new_frame,
-                                  sf_session=self._sf_s_frame.columns_frame.columns_frame.columnsession,
+                                  sf_session=self._sf_session,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
                                   op_tree=FillnaNode(
