@@ -1715,7 +1715,7 @@ class BasePandasDataset(ClassLogger):
             raise ValueError("must specify a fill method or value")
         if value is not None and method is not None:
             raise ValueError("cannot specify both a fill method and value")
-        if method is not None and method not in ["backfill", "bfill", "pad", "ffill"]:
+        if method is not None and method not in ["backfill", "bfill", "pad", "ffill", "snow_mean", "snow_mode"]:
             expecting = "pad (ffill) or backfill (bfill)"
             msg = "Invalid fill method. Expecting {expecting}. Got {method}".format(
                 expecting=expecting, method=method
@@ -1729,7 +1729,6 @@ class BasePandasDataset(ClassLogger):
 
         if isinstance(value, BasePandasDataset):
             value = value._query_compiler
-
         new_query_compiler = self._query_compiler.fillna(
             squeeze_self=squeeze_self,
             squeeze_value=squeeze_value,

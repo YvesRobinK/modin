@@ -38,6 +38,7 @@ from pandas.core.dtypes.common import is_bool_dtype, is_integer, is_integer_dtyp
 from pandas.core.indexing import IndexingError
 
 from modin.error_message import ErrorMessage
+from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
 from modin.logging import ClassLogger
 
 from .dataframe import DataFrame
@@ -699,8 +700,8 @@ class _LocIndexer(_LocationIndexerBase):
         levels_already_dropped = (
             row_multiindex_full_lookup or col_multiindex_full_lookup
         )
-
-        if isinstance(row_loc, Series) and is_boolean_array(row_loc):
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(row_loc, Series) and is_boolean_array(row_loc) and not isinstance(self.qc._modin_frame, SnowflakeDataframe):
             return self._handle_boolean_masking(row_loc, col_loc)
 
         qc_view = self.qc.take_2d_labels(row_loc, col_loc)

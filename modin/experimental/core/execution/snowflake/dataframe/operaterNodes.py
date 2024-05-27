@@ -1,3 +1,6 @@
+from typing import List
+
+
 class Node:
     def __init__(self,
                  prev=None,
@@ -188,7 +191,7 @@ class AssignmentNode(Node):
 
 class VirtualFrame:
     def __init__(self,
-                 node_list: [Node] = None
+                 node_list: List[Node] = None
                  ):
         self.node_list = node_list
 
@@ -281,3 +284,30 @@ class WriteItemsNode(Node):
         self.colnames = frame._frame.columns
         super().__init__(prev=prev, frame=frame)
 
+class DropNode(Node):
+    def __init__(self, colnames=None, droped_columns=None, prev=None, frame=None):
+        self.colnames = colnames
+        self.droped_columns = droped_columns
+        super().__init__(prev=prev, frame=frame)
+
+class FillnaNode(Node):
+    def __init__(self, value, prev=None, frame=None):
+        self.value = value
+        super().__init__(prev=prev, frame=frame)
+
+class ModeNode(Node):
+    def __init__(self, prev=None, frame=None):
+        super().__init__(prev, frame)
+
+class LazyFillNan(Node):
+
+    def __init__(self,
+                 value=None,
+                 method=None,
+                 column=None,
+                 prev=None,
+                 frame=None):
+        self.value = value
+        self.method = method
+        self.column = column
+        super().__init__(prev, frame)

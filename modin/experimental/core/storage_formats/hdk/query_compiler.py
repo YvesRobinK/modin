@@ -475,6 +475,17 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         _check_int_or_float("mean", self.dtypes)
         return self._agg("mean", **kwargs)
 
+    def mode(self, axis=0, numeric_only=False, dropna=False):
+        if axis == 1:
+            raise "NOT IMPLEMENTED"
+        if numeric_only:
+            raise "NOT IMPLEMENTED"
+        # at the moment we do not dropna
+        # if dropna:
+        #     raise "NOT IMPLEMENTED"
+
+        return self.__constructor__(self._modin_frame.mode())
+
     def nunique(self, axis=0, dropna=True):
         if axis != 0 or not dropna:
             raise NotImplementedError(
@@ -900,12 +911,12 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
 
     def setitem(self, axis, key, value):
-        print("We here")
-        print("_modin_frame type: ", type(self._modin_frame))
 
         from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(self._modin_frame, SnowflakeDataframe):
-            return self._modin_frame.setitem(axis, key, value)
+
+            return self.__constructor__(self._modin_frame.setitem(axis, key, value))
+            # return self._modin_frame.setitem(axis, key, value)
         if axis == 1 or not isinstance(value, type(self)):
             raise NotImplementedError(
                 f"HDK's setitem does not support such set of parameters: axis={axis}, value={value}."
@@ -915,12 +926,15 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
     _setitem = PandasQueryCompiler._setitem
 
     def insert(self, loc, column, value):
+        from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(value, type(self)):
-            from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
             if isinstance(self._modin_frame, SnowflakeDataframe):
                 return self.__constructor__(self._modin_frame.setitem(loc, column, value))
             value.columns = [column]
             return self.insert_item(axis=1, loc=loc, value=value)
+
+        if isinstance(self._modin_frame, SnowflakeDataframe):
+            return self.__constructor__(self._modin_frame.setitem(loc, column, value))
 
         if is_list_like(value):
             raise NotImplementedError("HDK's insert does not support list-like values.")
