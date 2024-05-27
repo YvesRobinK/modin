@@ -298,3 +298,16 @@ class FillnaNode(Node):
 class ModeNode(Node):
     def __init__(self, prev=None, frame=None):
         super().__init__(prev, frame)
+
+class LazyFillNan(Node):
+
+    def __init__(self,
+                 value=None,
+                 method=None,
+                 column=None,
+                 prev=None,
+                 frame=None):
+        self.value = value
+        self.method = method
+        self.column = column
+        super().__init__(prev, frame)

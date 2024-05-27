@@ -700,8 +700,8 @@ class _LocIndexer(_LocationIndexerBase):
         levels_already_dropped = (
             row_multiindex_full_lookup or col_multiindex_full_lookup
         )
-
-        if isinstance(row_loc, Series) and is_boolean_array(row_loc):
+        from modin.experimental.core.execution.snowflake.dataframe import SnowflakeDataframe
+        if isinstance(row_loc, Series) and is_boolean_array(row_loc) and not isinstance(self.qc._modin_frame, SnowflakeDataframe):
             return self._handle_boolean_masking(row_loc, col_loc)
 
         qc_view = self.qc.take_2d_labels(row_loc, col_loc)

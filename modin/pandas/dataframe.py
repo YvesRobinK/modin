@@ -2475,7 +2475,8 @@ class DataFrame(BasePandasDataset):
         """
         from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(self._query_compiler._modin_frame, SnowflakeDataframe):
-            key = key.upper()
+            if isinstance(key, str):
+                key = key.upper()
         if key not in self.keys():
             raise KeyError("{}".format(key))
         s = self.__constructor__(

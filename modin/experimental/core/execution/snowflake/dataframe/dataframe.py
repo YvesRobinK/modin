@@ -10,7 +10,7 @@ from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ModeNode, ConstructionNode, SelectionNode, ComparisonNode, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode
+    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode, LazyFillNan
 
 
 def track(func):
@@ -118,7 +118,7 @@ class SnowflakeDataframe:
         self._join_index = join_index
         self.index = self.columns
         if op_tree is None:
-            self.op_tree = ConstructionNode(colnames=self.columns, frame=frame)
+            self.op_tree = ConstructionNode(colnames=self.columns, frame=self._frame)
         else:
             self.op_tree = op_tree
         for col in self.schema:
@@ -148,7 +148,6 @@ class SnowflakeDataframe:
         if axis == 1:
             schema = self._frame._frame.schema
             columns = self.columns
-            print("Here columns", columns)
             new_frame = self._frame.agg_row(
                 agg=agg,
                 columns=columns
@@ -394,7 +393,7 @@ class SnowflakeDataframe:
                                       key_column=self.key_column,
                                       join_index=self._join_index,
                                       op_tree=BinOpNode(
-                                          colnames=f"{left_column} {operator_dict[op_name]} {right_column}",
+                                          colnames=new_frame._frame.columns, #f"{left_column} {operator_dict[op_name]} {right_column}",
                                           operator=operator_dict[op_name],
                                           other=other.op_tree,
                                           prev=self.op_tree,
@@ -655,8 +654,25 @@ class SnowflakeDataframe:
         """
 
 
+        if isinstance(value._modin_frame.op_tree, LazyFillNan):
+            new_frame = self._frame.lazy_assign_fillna(
+                assign_col=value._modin_frame._frame._frame.columns[0],
+                op_tree=value._modin_frame.op_tree
+            )
+            return SnowflakeDataframe(frame=new_frame,
+                                      sf_session=self._sf_session,
+                                      key_column=self.key_column,
+                                      join_index=self._join_index,
+                                      op_tree=AssignmentNode(
+                                          colnames=new_frame._frame.columns,
+                                          assignment_col=column,
+                                          prev=self.op_tree,
+                                          frame=new_frame
+                                      ))
+
         new_cols = self.columns
-        if column in self.columns:
+
+        if column.upper() in self.columns:
             if isinstance(value, DFAlgQueryCompiler):
                 if isinstance(value._modin_frame.op_tree, BinOpNode):
                     new_frame = self._frame.assign(
@@ -681,13 +697,13 @@ class SnowflakeDataframe:
                                   key_column=self.key_column,
                                   join_index=self._join_index,
                                   op_tree=AssignmentNode(
-                                      colnames=new_cols,
+                                      colnames=new_frame._frame.columns,
                                       assignment_col=column,
                                       prev=self.op_tree,
                                       frame=new_frame
                                   ))
 
-
+    @track
     def drop(self,
              index = None,
              columns = None,
@@ -705,7 +721,7 @@ class SnowflakeDataframe:
                                 frame=new_frame
                             ))
 
-
+    @track
     def replace(self,
                 to_replace,
                 value):
@@ -728,7 +744,7 @@ class SnowflakeDataframe:
                                       prev=op_before_selection,
                                       frame=new_frame
                                   ))
-
+    @track
     def split(self,
               pat = None,
               n=None,
@@ -755,13 +771,11 @@ class SnowflakeDataframe:
                                       prev=self.op_tree,
                                       frame=new_frame
                                   ))
-
+    @track
     def mult_assign(self,
                     axis,
                     other
                     ):
-        #print("Other type: ", type(other[0]._.op_tree.prev))
-        print(self.columns)
         new_frame = self._frame.assign_split(other[0])
 
         return SnowflakeDataframe(frame=new_frame,
@@ -773,7 +787,7 @@ class SnowflakeDataframe:
                                       frame=new_frame
                                   ))
 
-
+    @track
     def write_items(self,
                     row_numeric_index,
                     col_numeric_index,
@@ -798,6 +812,7 @@ class SnowflakeDataframe:
                                       frame=new_frame
                                   ))
 
+    @track
     def fillna(
         self,
         value=None,
@@ -806,9 +821,21 @@ class SnowflakeDataframe:
         limit=None,
         downcast=None,
     ):
+        return SnowflakeDataframe(frame=self._frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=LazyFillNan(
+                                      value=value,
+                                      method=method,
+                                      column=self.columns[0],
+                                      prev=self.op_tree,
+                                      frame=self._frame
+                                  ))
+
         new_frame = self._frame.fillna(value=value)
         return SnowflakeDataframe(frame=new_frame,
-                                  sf_session=self._sf_session,
+                                  sf_session=self._sf_s_frame.columns_frame.columns_frame.columnsession,
                                   key_column=self.key_column,
                                   join_index=self._join_index,
                                   op_tree=FillnaNode(
@@ -817,7 +844,7 @@ class SnowflakeDataframe:
                                       frame=new_frame
                                   ))
 
-
+    @track
     def mode(self):
         new_frame = self._frame.mode()
         return SnowflakeDataframe(frame=new_frame,

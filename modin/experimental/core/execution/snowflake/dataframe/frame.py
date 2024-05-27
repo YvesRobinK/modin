@@ -1,7 +1,8 @@
+import os
 from typing import List
 
 import numpy
-from snowflake.snowpark.functions import col, lit, when, mode
+from snowflake.snowpark.functions import col, lit, when, mode, expr
 from snowflake.snowpark.dataframe import DataFrame, Column
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ComparisonNode, LogicalNode, RowAggregationNode
@@ -90,14 +91,20 @@ class Frame:
                 column = override_column
             else:
                 column = new_column
-
-            command_string  = f"self._frame.with_column(column, ("
+            new_col_names = []
             for colname in op_tree.aggregated_cols:
-                print(colname)
-                command_string += f"self._frame['{colname}'] {agg_dict[op_tree.agg]}"
+                new_col_name = colname + "_temp"
+                self._frame = self._frame.with_column(new_col_name, col(colname))
+                self._frame = self._frame.fillna(0.0,subset=new_col_name)
+                new_col_names.append(new_col_name)
+
+            command_string = f"self._frame.with_column(column, ("
+            for colname in new_col_names:
+                command_string += f"self._frame['{colname.upper()}'] {agg_dict[op_tree.agg]}"
+
             command_string = command_string[:-1] + "))"
-            print(command_string)
             new_frame = eval(command_string)
+            new_frame = new_frame.drop(new_col_names)
             return Frame(new_frame)
 
 
@@ -112,8 +119,9 @@ class Frame:
             new_frame = self._frame.with_column("TEMP", (self._frame[left_col] * self._frame[right_col]))
         elif operator == "/":
             new_frame = self._frame.with_column("TEMP", (self._frame[left_col] / self._frame[right_col]))
-        rename_dict = {'TEMP': '"' + new_column + '"'}
+        rename_dict = {'TEMP': new_column}
         if override_column is not None:
+            rename_dict = {'TEMP': override_column}
             new_frame = new_frame.drop(override_column)
             new_frame = new_frame.rename(rename_dict)
         else:
@@ -164,7 +172,7 @@ class Frame:
             }
             command_string = (f"self._frame.filter((col(\"{left_comp.comp_column}\") {operator_dict[left_comp.operator]} '{left_comp.value}') {logical_dict[comp_Node.logical_operator]} "
                               f"(col(\"{right_comp.comp_column}\") {operator_dict[right_comp.operator]} '{right_comp.value}'))")
-            print(command_string)
+
             new_frame = eval(command_string)
 
         return Frame(new_frame)
@@ -214,7 +222,7 @@ class Frame:
                 value = None,
                 column= None,
                 op_before_selection= None):
-        print("Columne: ", column)
+
         new_frame = op_before_selection.frame._frame.na.replace({to_replace: value}, col(column))
         return Frame(new_frame)
 
@@ -225,14 +233,14 @@ class Frame:
               regex=None,
               column=None):
 
-        return self
+        return Frame(self._frame)
 
 
 
     def assign_split(self,
                      other):
         expr_list = []
-        print("Other type: ", type(other._modin_frame.op_tree.prev))
+
         sep = other._modin_frame.op_tree.prev.pat
         #sep = ","
         column = other._modin_frame.op_tree.prev.column
@@ -244,12 +252,12 @@ class Frame:
 
         command_string = f"self._frame.select("
         for coler in self._frame.columns:
-            print("Col", coler)
+
             command_string += f"col(\"{coler}\"),"
         for i in expr_list:
             command_string += i + ","
         command_string = command_string[:-1] + ")"
-        print(command_string)
+
         new_frame = eval(command_string)
         return Frame(new_frame)
 
@@ -260,7 +268,7 @@ class Frame:
         agg_dict = {
             "sum": "+",
         }
-        print("Agg: ", agg)
+
         expr_string = f""
         for column in columns:
             expr_string += f"{column} {agg_dict[agg]}"
@@ -272,7 +280,7 @@ class Frame:
                     row_numeric_index=None,
                     col_numeric_index=None,
                     item=None):
-
+        first_columns = self._frame.columns
         if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, ComparisonNode):
             comp_op = row_numeric_index._query_compiler._modin_frame.op_tree
             comparison_value = comp_op.value
@@ -290,6 +298,7 @@ class Frame:
                 )
                 for c in col_numeric_index:
                     self._frame = self._frame.with_column(c, when(col(comp_column) == comparison_value, item).otherwise(col(c)))
+        self._frame = self._frame.select(first_columns)
         return Frame(self._frame)
 
     def drop(self,
@@ -314,4 +323,30 @@ class Frame:
         if type(value) == numpy.bool_:
             value = bool(value)
         new_frame = self._frame.na.fill(value)
+        return Frame(new_frame)
+
+    def lazy_assign_fillna(self,
+                           assign_col=None,
+                           op_tree=None):
+        column_order = self._frame.columns
+        if op_tree.method == "snow_mean":
+            new_frame = self._frame.selectExpr("*",
+                    "COALESCE({}, AVG({}) OVER()) AS {}".format(assign_col,assign_col, assign_col + "_TEMP"))
+        elif op_tree.method == "snow_mode":
+            print("Assign col name: ", assign_col)
+            print("Assign col :", self._frame[assign_col])
+            print("columns", self._frame.columns)
+            for column in self._frame.columns:
+                if not column == "PASSENGERID":
+                    mode_column = mode(self._frame[column])
+                    print(mode_column)
+                    self._frame = self._frame.with_column(column + "_TEMP", mode_column)
+            """
+            new_frame = self._frame.selectExpr("*", "COALESCE({}, MODE({}) OVER\
+                                       (PARTITION BY {} ORDER BY {} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))\
+                                       AS {}".format(assign_col,assign_col ,assign_col, assign_col, assign_col + "_TEMP"))
+            """
+        new_frame = self._frame.drop(assign_col)
+        new_frame = new_frame.rename({assign_col + "_TEMP": assign_col})
+        new_frame = new_frame.select(column_order)
         return Frame(new_frame)

@@ -911,12 +911,9 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
         )
 
     def setitem(self, axis, key, value):
-        print("We here")
-        print("_modin_frame type: ", type(self._modin_frame))
 
         from modin.experimental.core.execution.snowflake.dataframe.dataframe import SnowflakeDataframe
         if isinstance(self._modin_frame, SnowflakeDataframe):
-            print("We not here")
             return self.__constructor__(self._modin_frame.setitem(axis, key, value))
             # return self._modin_frame.setitem(axis, key, value)
         if axis == 1 or not isinstance(value, type(self)):
