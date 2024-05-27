@@ -226,10 +226,14 @@ class Frame:
                 value = None,
                 column= None,
                 op_before_selection= None):
-
-        new_frame = op_before_selection.frame._frame.with_column("temp", when(col(column) == to_replace, str(0)).otherwise(col(column)))
+        print("THIS HAPPENS")
+        print(op_before_selection.frame._frame.show())
+        new_frame = op_before_selection.frame._frame.with_column("temp", when(col(column) == to_replace, str(value)).otherwise(col(column)))
+        print(new_frame.show())
         new_frame = new_frame.drop(column)
+        print(new_frame.show())
         new_frame = new_frame.rename({"temp": column})
+        print(new_frame.show())
         return Frame(new_frame)
 
     def split(self,
@@ -340,6 +344,16 @@ class Frame:
             new_frame = self._frame.selectExpr("*",
                     "COALESCE({}, AVG({}) OVER()) AS {}".format(assign_col,assign_col, assign_col + "_TEMP"))
         elif op_tree.method == "snow_mode":
+            new_frame = self._frame.selectExpr(
+                "*",
+                f"COALESCE({assign_col}, (SELECT {assign_col} FROM (SELECT {assign_col}, COUNT(*) OVER(PARTITION BY {assign_col}) AS freq, ROW_NUMBER() OVER (PARTITION BY {assign_col} ORDER BY COUNT(*) OVER(PARTITION BY {assign_col}) DESC) AS row_num FROM VALUES) sub WHERE row_num = 1)) AS {assign_col}_TEMP"
+            )
+
+
+            
+            
+            """
+            new_frame = self._frame.selectExpr("*", )
             print("Assign col name: ", assign_col)
             print("Assign col :", self._frame[assign_col])
             print("columns", self._frame.columns)
@@ -348,6 +362,7 @@ class Frame:
                     mode_column = mode(self._frame[column])
                     print(mode_column)
                     self._frame = self._frame.with_column(column + "_TEMP", mode_column)
+            """
             """
             new_frame = self._frame.selectExpr("*", "COALESCE({}, MODE({}) OVER\
                                        (PARTITION BY {} ORDER BY {} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))\

@@ -353,8 +353,6 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
                 limit = None,
                 regex = None,
                 method = None):
-        print("To_replace: ", to_replace)
-        print("value", value)
 
         return self.__constructor__(self._modin_frame.replace(to_replace=to_replace, value=value))
 

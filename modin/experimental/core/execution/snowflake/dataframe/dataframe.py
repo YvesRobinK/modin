@@ -728,7 +728,16 @@ class SnowflakeDataframe:
                 value):
         assert len(self.columns) == 1 , "Replace only possible on single column"
         column = self.columns[0]
-        op_before_selection = self.op_tree.prev
+        if isinstance(self.op_tree.prev, DropNode):
+            op_before_selection = self.op_tree.prev
+        else:
+            op_before_selection = self.op_tree.prev
+        curr_node = self.op_tree
+        while not isinstance(curr_node, ConstructionNode):
+            #print("Type curr node: ", type(curr_node))
+            curr_node = curr_node.prev
+        #op_before_selection = self.op_tree.prev
+        print("Op tree type: ", type(op_before_selection))
         new_frame = self._frame.replace(to_replace=to_replace,
                                        value=value,
                                        column=column,
