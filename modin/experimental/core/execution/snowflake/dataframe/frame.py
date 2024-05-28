@@ -1,9 +1,8 @@
-import os
 from typing import List
 
 import numpy
-from snowflake.snowpark.functions import col, lit, when, mode, expr
-from snowflake.snowpark.dataframe import DataFrame, Column
+from snowflake.snowpark.functions import col, lit, when, mode
+from snowflake.snowpark.dataframe import DataFrame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ComparisonNode, LogicalNode, RowAggregationNode
 
@@ -333,32 +332,12 @@ class Frame:
         column_order = self._frame.columns
         if op_tree.method == "snow_mean":
             new_frame = self._frame.selectExpr("*",
-                    "COALESCE({}, AVG({}) OVER()) AS {}".format(assign_col,assign_col, assign_col + "_TEMP"))
+                    f"COALESCE({assign_col}, AVG({assign_col}) OVER()) AS {assign_col + '_TEMP'}")
         elif op_tree.method == "snow_mode":
             new_frame = self._frame.selectExpr(
                 "*",
-                f"COALESCE({assign_col}, (SELECT {assign_col} FROM (SELECT {assign_col}, COUNT(*) OVER(PARTITION BY {assign_col}) AS freq, ROW_NUMBER() OVER (PARTITION BY {assign_col} ORDER BY COUNT(*) OVER(PARTITION BY {assign_col}) DESC) AS row_num FROM VALUES) sub WHERE row_num = 1)) AS {assign_col}_TEMP"
+                f"COALESCE({assign_col}, MODE({assign_col}) OVER()) AS {assign_col + '_TEMP'}"
             )
-
-
-            
-            
-            """
-            new_frame = self._frame.selectExpr("*", )
-            print("Assign col name: ", assign_col)
-            print("Assign col :", self._frame[assign_col])
-            print("columns", self._frame.columns)
-            for column in self._frame.columns:
-                if not column == "PASSENGERID":
-                    mode_column = mode(self._frame[column])
-                    print(mode_column)
-                    self._frame = self._frame.with_column(column + "_TEMP", mode_column)
-            """
-            """
-            new_frame = self._frame.selectExpr("*", "COALESCE({}, MODE({}) OVER\
-                                       (PARTITION BY {} ORDER BY {} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))\
-                                       AS {}".format(assign_col,assign_col ,assign_col, assign_col, assign_col + "_TEMP"))
-            """
 
         new_frame = new_frame.drop(assign_col)
         new_frame = new_frame.rename({assign_col + "_TEMP": assign_col})
