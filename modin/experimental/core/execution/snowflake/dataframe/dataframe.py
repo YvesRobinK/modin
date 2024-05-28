@@ -307,7 +307,7 @@ class SnowflakeDataframe:
         from modin.pandas.dataframe import DataFrame
         import pyarrow as pa
         modin_df = modin.pandas.DataFrame()
-        for batch in self._frame._frame.to_pandas_batches():
+        for batch in self.op_tree.frame._frame.to_pandas_batches():
             modin_df = modin.pandas.concat([modin_df, modin.pandas.io.from_pandas(batch)])
         return modin_df
 
