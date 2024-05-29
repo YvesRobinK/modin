@@ -281,11 +281,31 @@ class Frame:
                     col_numeric_index=None,
                     item=None):
         first_columns = self._frame.columns
+        for c in col_numeric_index:
+            if not c.upper() in self._frame.columns:
+                self._frame = self._frame.with_column(c, lit(None))
+                first_columns.append(c)
+        if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, LogicalNode):
+            left_comp = row_numeric_index._query_compiler._modin_frame.op_tree.left_comp
+            right_comp = row_numeric_index._query_compiler._modin_frame.op_tree.right_comp
+            comparison_value_left = left_comp.value
+            comparison_value_right = right_comp.value
+            comp_column = left_comp.comp_column
+
+            for c in col_numeric_index:
+                self._frame = self._frame.with_column(c, \
+                                    when((col(comp_column) > comparison_value_left) & ((col(comp_column) <= comparison_value_right)), \
+                                         item).otherwise(col(c)))
         if isinstance(row_numeric_index._query_compiler._modin_frame.op_tree, ComparisonNode):
             comp_op = row_numeric_index._query_compiler._modin_frame.op_tree
 
             comparison_value = comp_op.value
             comp_column = comp_op.comp_column
+
+            if comp_op.operator == "<=":
+                for c in col_numeric_index:
+                    self._frame = self._frame.with_column(c, when(col(comp_column) <= comparison_value, item).otherwise(
+                        col(c)))
             if comp_op.operator == "<":
                 for c in col_numeric_index:
                     self._frame = self._frame.with_column(c, when(col(comp_column) < comparison_value, item).otherwise(col(c)))
@@ -343,3 +363,14 @@ class Frame:
         new_frame = new_frame.rename({assign_col + "_TEMP": assign_col})
         new_frame = new_frame.select(column_order)
         return Frame(new_frame)
+
+
+    def astype(self,
+               op_tree=None
+               ):
+        new_frame = self._frame
+        for colname, type in op_tree.casted_cols.items():
+            new_frame = new_frame.withColumn(colname, col(colname).cast(type))
+        return Frame(new_frame)
+
+

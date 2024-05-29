@@ -10,14 +10,14 @@ from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ModeNode, ConstructionNode, SelectionNode, ComparisonNode, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode, LazyFillNan
+    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode, LazyFillNan, AstypeNode
 
 
 def track(func):
 
     @wraps(func)
     def with_logging(*args, **kwargs):
-        print(func.__name__ + " was called")
+        #print(func.__name__ + " was called")
         return func(*args, **kwargs)
 
     return with_logging
@@ -352,7 +352,7 @@ class SnowflakeDataframe:
         operator_dict = {
             "mul": "*",
             "sub": "-",
-            "div": "/",
+            "truediv": "/",
             "add": "+"
         }
 
@@ -659,6 +659,7 @@ class SnowflakeDataframe:
         SnowflakeDataframe
         """
 
+
         if not isinstance(value, int) and not isinstance(value, float):
             if isinstance(value._modin_frame.op_tree, LazyFillNan):
                 new_frame = self._frame.lazy_assign_fillna(
@@ -738,7 +739,7 @@ class SnowflakeDataframe:
             op_before_selection = self.op_tree.prev
         curr_node = self.op_tree
         while not isinstance(curr_node, ConstructionNode):
-            #print("Type curr node: ", type(curr_node))
+
             curr_node = curr_node.prev
         new_frame = self._frame.replace(to_replace=to_replace,
                                        value=value,
@@ -788,6 +789,23 @@ class SnowflakeDataframe:
                     axis,
                     other
                     ):
+
+        if not isinstance(other[0], int) and not isinstance(other[0], float):
+            if isinstance(other[0]._modin_frame.op_tree.prev, AstypeNode):
+
+                new_frame = self._frame.astype(
+                    op_tree=other[0]._modin_frame.op_tree.prev
+                )
+                return SnowflakeDataframe(frame=new_frame,
+                                          sf_session=self._sf_session,
+                                          key_column=self.key_column,
+                                          join_index=self._join_index,
+                                          op_tree=SplitAssignNode(
+                                              prev=self.op_tree,
+                                              frame=new_frame
+                                          ))
+
+
         new_frame = self._frame.assign_split(other[0])
 
         return SnowflakeDataframe(frame=new_frame,
@@ -868,4 +886,18 @@ class SnowflakeDataframe:
                                 prev=self.op_tree,
                                 frame=new_frame
                             ))
+
+    def astype(self,
+               col_dtypes
+               ):
+        return SnowflakeDataframe(frame=self._frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=AstypeNode(
+                                      casted_cols=col_dtypes,
+                                      prev=self.op_tree,
+                                      frame=self._frame
+                                  ))
+
 

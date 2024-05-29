@@ -311,3 +311,14 @@ class LazyFillNan(Node):
         self.method = method
         self.column = column
         super().__init__(prev, frame)
+
+
+class AstypeNode(Node):
+
+    def __init__(self,
+                 casted_cols=None,
+                 prev=None,
+                 frame=None):
+        self.casted_cols = casted_cols
+        super().__init__(prev, frame)
+

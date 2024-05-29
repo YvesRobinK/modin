@@ -903,6 +903,7 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
                 "This lazy query compiler will always "
                 + "raise an error on invalid type keys."
             )
+        print("Col types: ", col_dtypes)
         return self.__constructor__(
             self._modin_frame.astype(col_dtypes),
             self._shape_hint,
