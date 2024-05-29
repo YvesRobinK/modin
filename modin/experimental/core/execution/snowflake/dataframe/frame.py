@@ -1,7 +1,7 @@
 from typing import List
 
 import numpy
-from snowflake.snowpark.functions import col, lit, when, mode
+from snowflake.snowpark.functions import col, lit, when, mode, expr
 from snowflake.snowpark.dataframe import DataFrame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ComparisonNode, LogicalNode, RowAggregationNode
