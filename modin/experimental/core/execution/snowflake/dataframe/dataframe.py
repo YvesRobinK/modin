@@ -10,7 +10,7 @@ from modin.experimental.core.execution.snowflake.dataframe.frame import Frame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
     ModeNode, ConstructionNode, SelectionNode, ComparisonNode, JoinNode, SetIndexNode, FilterNode, RenameNode, \
     LogicalNode, BinOpNode, AggNode, GroupByNode, SortNode, AssignmentNode, ReplacementNode, SplitNode, SplitAssignNode, \
-    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode, LazyFillNan, AstypeNode
+    RowAggregationNode, WriteItemsNode, DropNode, FillnaNode, LazyFillNan, AstypeNode, RMulNode
 
 
 def track(func):
@@ -407,6 +407,21 @@ class SnowflakeDataframe:
                                       ))
         return None
 
+    def rmul(self, other):
+        new_frame = self._frame.rmul(
+            other
+        )
+        return SnowflakeDataframe(frame=new_frame,
+                                  sf_session=self._sf_session,
+                                  key_column=self.key_column,
+                                  join_index=self._join_index,
+                                  op_tree=RMulNode(
+                                      colnames=new_frame._frame.columns,
+                                      other=other,
+                                      prev=self.op_tree,
+                                      frame=new_frame
+                                  ))
+
     @track
     def has_multiindex(
             self
@@ -660,6 +675,7 @@ class SnowflakeDataframe:
         """
 
 
+
         if not isinstance(value, int) and not isinstance(value, float):
             if isinstance(value._modin_frame.op_tree, LazyFillNan):
                 new_frame = self._frame.lazy_assign_fillna(
@@ -680,13 +696,19 @@ class SnowflakeDataframe:
 
         if column.upper() in self.columns:
             if isinstance(value, DFAlgQueryCompiler):
-                if isinstance(value._modin_frame.op_tree, BinOpNode):
-                    new_frame = self._frame.assign(
+                if isinstance(value._modin_frame.op_tree, RMulNode):
+                    new_frame=self._frame.assign(
                                                 override_column=column,
                                                 op_tree= value._modin_frame.op_tree
                                                 )
                 else:
-                    new_frame = self._frame.assign_singular(column=column, value=value._modin_frame._frame)
+                    if isinstance(value._modin_frame.op_tree, BinOpNode):
+                        new_frame = self._frame.assign(
+                                                    override_column=column,
+                                                    op_tree= value._modin_frame.op_tree
+                                                    )
+                    else:
+                        new_frame = self._frame.assign_singular(column=column, value=value._modin_frame._frame)
         else:
             new_cols.append(column)
             if isinstance(value, DFAlgQueryCompiler):

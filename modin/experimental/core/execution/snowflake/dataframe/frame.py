@@ -4,7 +4,7 @@ import numpy
 from snowflake.snowpark.functions import col, lit, when, mode, expr
 from snowflake.snowpark.dataframe import DataFrame
 from modin.experimental.core.execution.snowflake.dataframe.operaterNodes import \
-    ComparisonNode, LogicalNode, RowAggregationNode
+    ComparisonNode, LogicalNode, RowAggregationNode, Node, RMulNode
 
 
 class Frame:
@@ -34,7 +34,7 @@ class Frame:
                  ):
         new_frame = None
         if isinstance(other, str):
-            if operator == "=":
+            if operator == "==":
                 new_frame = self._frame.select(col(column) == other)
             elif operator == "<=":
                 new_frame = self._frame.select(col(column) <= other)
@@ -45,7 +45,10 @@ class Frame:
             elif operator == ">":
                 new_frame = self._frame.select(col(column) > other)
         else:
-            new_frame = self._frame.selectExpr(f"{column} {operator} {other}")
+            if operator == "=":
+                new_frame = self._frame.select(col(column) == other)
+            else:
+                new_frame = self._frame.selectExpr(f"{column} {operator} {other}")
         return Frame(new_frame)
 
     def bin_op(self,
@@ -64,10 +67,21 @@ class Frame:
         return Frame(new_frame)
 
     def logical_expression(self,
-                           left_comp=None,
-                           right_comp=None,
-                           logical_operator=None
+                           left_comp: ComparisonNode = None,
+                           right_comp: ComparisonNode = None,
+                           logical_operator: str = None
                            ):
+        """
+        Performs logical operations between columns on Snowpark DataFrame
+        Parameters
+        ----------
+        left_comp : Node           | op_tree of the left side argument
+        right_comp : Node          | op_tree of the right side argument
+        logical_operator : str     | specifies the logical operation
+        Returns
+        -------
+        Frame                      | Frame with the resulting Snowpark DataFrame
+        """
         new_frame = self._frame.select_expr(f" __REDUCED__ "
                                             f"{left_comp.operator} "
                                             f"'{left_comp.value}' "
@@ -82,6 +96,7 @@ class Frame:
                new_column=None,
                op_tree=None
                ):
+
         if isinstance(op_tree, RowAggregationNode):
             agg_dict = {
                 "sum": "+",
@@ -108,7 +123,10 @@ class Frame:
 
 
         left_col = op_tree.prev.prev.colnames[0]
-        right_col = op_tree.other.prev.colnames[0]
+        if isinstance(op_tree.other, float):
+            right_col = op_tree.other
+        else:
+            right_col = op_tree.other.prev.colnames[0]
         operator = op_tree.operator
 
         if operator == "-":
@@ -116,7 +134,11 @@ class Frame:
         elif operator == "+":
             new_frame = self._frame.with_column("TEMP", (self._frame[left_col] + self._frame[right_col]))
         elif operator == "*":
-            new_frame = self._frame.with_column("TEMP", (self._frame[left_col] * self._frame[right_col]))
+            if isinstance(op_tree, RMulNode):
+                print("Type: ", type(op_tree.other))
+                new_frame = self._frame.with_column("TEMP", (self._frame[left_col] * op_tree.other))
+            else:
+                new_frame = self._frame.with_column("TEMP", (self._frame[left_col] * self._frame[right_col]))
         elif operator == "/":
             new_frame = self._frame.with_column("TEMP", (self._frame[left_col] / self._frame[right_col]))
         rename_dict = {'TEMP': new_column}
@@ -147,9 +169,40 @@ class Frame:
         new_frame = self._frame.with_column(column, lit(value))
         return Frame(new_frame)
 
+    OPERATORS = {
+        "<=": "<=",
+        ">=": ">=",
+        "=": "==",
+        "<": "<",
+        ">": ">"
+        }
+    LOGICAL_OPERATORS={
+        "or": "|",
+        "and": "&"
+        }
     def filter(self,
-               comp_Node=None
+               comp_Node: Node = None
                ):
+        """
+        Performs filtering on a snowpark.DataFrame
+        Parameters
+        ----------
+        comp_Node : Node           | op_tree defining the filtering
+        Returns
+        -------
+        Frame                      | Frame with the resulting Snowpark DataFrame
+        """
+        OPERATORS = {
+            "<=": "<=",
+            ">=": ">=",
+            "=": "==",
+            "<": "<",
+            ">": ">"
+        }
+        LOGICAL_OPERATORS = {
+            "or": "|",
+            "and": "&"
+        }
         if isinstance(comp_Node, ComparisonNode):
             new_frame = self._frame.filter(f'"{comp_Node.comp_column}" '
                                            f"{comp_Node.operator} "
@@ -158,22 +211,13 @@ class Frame:
         elif isinstance(comp_Node, LogicalNode):
             left_comp = comp_Node.prev
             right_comp = comp_Node.right_comp
-            operator_dict={
-                "<=": "<=",
-                ">=": ">=",
-                "=": "==",
-                "<": "<",
-                ">": ">"
-            }
-            logical_dict={
-                "or": "|",
-                "and": "&"
-            }
-            command_string = (f"self._frame.filter((col(\"{left_comp.comp_column}\") {operator_dict[left_comp.operator]} '{left_comp.value}') {logical_dict[comp_Node.logical_operator]} "
-                              f"(col(\"{right_comp.comp_column}\") {operator_dict[right_comp.operator]} '{right_comp.value}'))")
-
+            command_string = (f"self._frame.filter((col(\"{left_comp.comp_column}\")"
+                              f" {OPERATORS[left_comp.operator]} "
+                              f"'{left_comp.value}') "
+                              f"{LOGICAL_OPERATORS[comp_Node.logical_operator]} "
+                              f"(col(\"{right_comp.comp_column}\")"
+                              f" {OPERATORS[right_comp.operator]} '{right_comp.value}'))")
             new_frame = eval(command_string)
-
         return Frame(new_frame)
 
     def groupby_agg(self,
@@ -313,10 +357,12 @@ class Frame:
                 for c in col_numeric_index:
                     self._frame = self._frame.with_column(c, when(col(comp_column) > comparison_value, item).otherwise(col(c)))
             if comp_op.operator == "=":
+                """
                 self._frame = self._frame.with_column(
                     comp_column,
                     col(comp_column).cast('BOOLEAN')
                 )
+                """
                 for c in col_numeric_index:
                     self._frame = self._frame.with_column(c, when(col(comp_column) == comparison_value, item).otherwise(col(c)))
         self._frame = self._frame.select(first_columns)
@@ -325,6 +371,11 @@ class Frame:
     def drop(self,
              columns):
         new_frame = self._frame.drop(columns)
+        return Frame(new_frame)
+
+    def rmul(self,
+             other):
+        new_frame = self._frame #TODO Implement logic here for now dummy
         return Frame(new_frame)
 
     def mode(self) -> "Frame":

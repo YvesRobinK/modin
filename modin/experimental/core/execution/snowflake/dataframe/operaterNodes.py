@@ -24,6 +24,19 @@ class SetIndexNode(Node):
         self.index = index
         super().__init__(prev=prev, frame=frame)
 
+class RMulNode(Node):
+    def __init__(self,
+                 colnames: str,
+                 other : float,
+                 prev=None,
+                 frame=None
+                 ):
+        self.name = "RMulNode"
+        self.colnames = colnames
+        self.other=other
+        self.operator = "*"
+        super().__init__(prev=prev, frame=frame)
+
 
 class ConstructionNode(Node):
     def __init__(self,

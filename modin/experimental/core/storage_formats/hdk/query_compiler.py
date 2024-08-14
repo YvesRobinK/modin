@@ -985,6 +985,8 @@ class DFAlgQueryCompiler(BaseQueryCompiler):
     def __and__(self, other):
         return self.__constructor__(self._modin_frame.logic_op(other, logic_operator="and"))
 
+    def rmul(self, other, **kwargs):
+        return self.__constructor__(self._modin_frame.rmul(other))
 
     def is_series_like(self):
         if self._shape_hint is not None:
