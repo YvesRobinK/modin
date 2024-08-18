@@ -34,7 +34,7 @@ class Frame:
                  ):
         new_frame = None
         if isinstance(other, str):
-            if operator == "==":
+            if operator == "=":
                 new_frame = self._frame.select(col(column) == other)
             elif operator == "<=":
                 new_frame = self._frame.select(col(column) <= other)
@@ -45,10 +45,14 @@ class Frame:
             elif operator == ">":
                 new_frame = self._frame.select(col(column) > other)
         else:
+            """
             if operator == "=":
                 new_frame = self._frame.select(col(column) == other)
             else:
                 new_frame = self._frame.selectExpr(f"{column} {operator} {other}")
+            """
+            new_frame = self._frame.selectExpr(f"{column} {operator} {other}")
+
         return Frame(new_frame)
 
     def bin_op(self,
